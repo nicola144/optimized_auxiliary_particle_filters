@@ -206,5 +206,5 @@ assert np.isclose(simps(apf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 assert np.isclose(simps(iapf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 assert np.isclose(simps(new_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 
-plt.show()
-# plt.savefig("test2.png", bbox_inches='tight')
+# plt.show()
+plt.savefig("test2.png", bbox_inches='tight')
