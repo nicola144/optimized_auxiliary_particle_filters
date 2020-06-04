@@ -86,7 +86,7 @@ n = 100
 x = np.linspace(left, right, n)
 X = np.array([np.linspace(left, right, n).tolist(),]*m)
 
-color=iter(cm.rainbow(np.linspace(0,1,m)))
+# color=iter(cm.rainbow(np.linspace(0,1,m)))
 
 ############################################################################################
 
