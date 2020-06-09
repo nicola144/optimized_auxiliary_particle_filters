@@ -1,4 +1,4 @@
-import cupy as np 
+import numpy as np 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from matplotlib import cm
@@ -8,14 +8,17 @@ from scipy import linalg
 from scipy.integrate import simps
 from numpy.linalg import matrix_rank
 from scipy.linalg import null_space
-from scipy.optimize import linprog
+from scipy.optimize import linprog,nnls
 import math
 import sys
 from tqdm import tqdm
 import time
 from scipy.sparse import csr_matrix,csc_matrix
+from sklearn import random_projection
 
 
+def chi_square(target,proposal,x):
+  return simps( (target - proposal)**2 /(proposal), dx=x[1]-x[0])
 ############################################################################################
 # Set plotting
 params = {
@@ -37,37 +40,70 @@ plt.style.use('bmh')
 fig, ax = plt.subplots(5, 1)
 fig.tight_layout(pad=0.3)
 
+
+
+# m = 4 # n particles
+# w_prev = np.array([3., 1., 2., 3.]) 
+# w_prev = w_prev / np.sum(w_prev)
+# # x_prev = np.array([2.5, 3.25, 3.75, 3.]) # this with sigma lik = 1.5 means use BPF !! 
+# x_prev = np.array([1.5, 3., 4.5, 5.5]) # INTERESTING . Try it with both high lik and low lik. High lik & kernels no overlap : USE APF
+
+# lik_center = 4. # original 2.
+#----------------------------------------------------------------------------------
+
+# m = 4 # n particles
+# w_prev = np.array([3., 1., 2., 1.]) 
+# w_prev = w_prev / np.sum(w_prev)
+# x_prev = np.array([3.5, 3.5, 3.5, 3.5]) # also exactly the same . I think this is just bc of model mismatch
+# lik_center = 5. # original 2.
+#----------------------------------------------------------------------------------
+
+# weights already normalized 
+# m = 4 # n particles
+# w_prev = np.array([3., 1., 2., 1.]) 
+# w_prev = w_prev / np.sum(w_prev)
+# x_prev = np.array([3.5, 4.5, 5., 5.5]) # using 3. and 5. , with lik. in the middle, gives same solution for all
+# lik_center = 4. # original 2.
+#----------------------------------------------------------------------------------
+
+# weights already normalized 
+# m = 2 # n particles
+# w_prev = np.array([0.5, 0.5]) 
+# x_prev = np.array([3.5, 4.5]) # using 3. and 5. , with lik. in the middle, gives same solution for all
+# lik_center = 3. # original 2.
+
 #----------------------------------------------------------------------------------
 
 # weights already normalized 
 # m = 4 # n particles
 # w_prev = np.array([0.03, 0.16, 0.16, 0.65]) # original [0.03, 0.16, 0.16, 0.65]
 # x_prev = np.array([3., 4., 5., 6.]) # original [3., 4., 5., 6.]
-# lik_center = 6. # original 2.
+# lik_center = 4. # original 2.
 
 #----------------------------------------------------------------------------------
 
-# m=3
-# w_prev = np.array([0.1,0.6,0.3]) # original [0.03, 0.16, 0.16, 0.65]
-# x_prev = np.array([4.,5.,7.]) # original [3., 4., 5., 6.]
-# lik_center = 6.5 # original 2.
+m=3
+w_prev = np.array([0.1,0.6,0.3]) # original [0.03, 0.16, 0.16, 0.65]
+x_prev = np.array([4.,5.,7.]) # original [3., 4., 5., 6.]
+lik_center = 6.5 # original 2.
 
 #----------------------------------------------------------------------------------
 
-# m=10
-# w_prev = np.array([0.3,0,0.05]) # original [0.03, 0.16, 0.16, 0.65]
-# x_prev = np.array([4.,5.,7.]) # original [3., 4., 5., 6.]
-# lik_center = 6.5 # original 2.
+# m=5
+# w_prev = np.array([10.,3.,3.,6.,11.]) # original [0.03, 0.16, 0.16, 0.65]
+# x_prev = np.array([4.5,5.5,6.,7.5,7.]) # original [3., 4., 5., 6.]
+# w_prev = w_prev / np.sum(w_prev)
+# lik_center = 5. # original 2.
 
 #----------------------------------------------------------------------------------
 
-m=10000
-w_prev = np.random.normal(loc=10,scale=1.5,size=m)
-idxs = np.random.choice(len(w_prev), math.floor(m/500))
-w_prev[idxs]*= 100000
-w_prev = w_prev / np.sum(w_prev)
-x_prev = np.random.normal(loc=5,scale=1.,size=m)
-lik_center = 5. # original 2.
+# m=1000
+# w_prev = np.random.normal(loc=10,scale=1.5,size=m)
+# idxs = np.random.choice(len(w_prev), math.floor(m/10))
+# w_prev[idxs]*= 10
+# w_prev = w_prev / np.sum(w_prev)
+# x_prev = np.random.normal(loc=5,scale=1.,size=m)
+# lik_center = 5. # original 2.
 
 #----------------------------------------------------------------------------------
 
@@ -81,20 +117,20 @@ sigma_lik = 0.8 # original 0.8
 left = -10.
 right = 10.
 
-n = 100
+n = 1000
 
 x = np.linspace(left, right, n)
 X = np.array([np.linspace(left, right, n).tolist(),]*m)
 
-# color=iter(cm.rainbow(np.linspace(0,1,m)))
+color=iter(cm.rainbow(np.linspace(0,1,m)))
 
 ############################################################################################
 
 # Plotting kernels requires for loop :( 
-# for j in range(m):
-# 	c=next(color)
-# 	current = w_prev[j] * norm.pdf(x, loc=x_prev[j], scale=sigma_kernels)
-# 	ax[0].plot(x, current, c=c, label='Kernel '+str(j))
+for j in range(m):
+	c=next(color)
+	current = w_prev[j] * norm.pdf(x, loc=x_prev[j], scale=sigma_kernels)
+	ax[0].plot(x, current, c=c, label='Kernel '+str(j))
 
 predictive = np.dot(w_prev, norm.pdf(x, loc=x_prev.reshape(-1,1), scale=sigma_kernels))
 
@@ -117,8 +153,14 @@ apf_lambda = apf_lambda / np.sum(apf_lambda)
 apf_proposal = np.dot(apf_lambda, norm.pdf(X, loc=x_prev.reshape(-1,1), scale=sigma_kernels))
 
 # IAPF 
-sum_denominator = np.sum( [norm.pdf(x_prev, loc=x_prev[k], scale=sigma_kernels) for k in range(m)], axis=1 )
-sum_numerator = np.sum( [ w_prev[k] * norm.pdf(x_prev, loc=x_prev[k], scale=sigma_kernels) for k in range(m)], axis=0) # no idea why here works with 0 and not 1
+sum_denominator = np.zeros((m,))
+for i in range(m):
+  for j in range(m):
+    sum_denominator[i]+= pred_lik[j] * norm.pdf(x_prev[i], x_prev[j], scale=sigma_kernels)
+
+# sum_denominator = np.sum( [norm.pdf(x_prev, loc=x_prev[k], scale=sigma_kernels) for k in range(m)], axis=1)
+# cambiato
+sum_numerator = np.sum( [   w_prev[k] * pred_lik[k] * norm.pdf(x_prev, loc=x_prev[k], scale=sigma_kernels) for k in range(m)], axis=0) # no idea why here works with 0 and not 1
 
 iapf_lambda = (pred_lik * sum_numerator) / sum_denominator
 iapf_lambda = iapf_lambda / np.sum(iapf_lambda)
@@ -156,17 +198,25 @@ A = F1.T
 
 # print("Percentage of zeros for A: ", 100. -  (float(np.count_nonzero(A)) / float(A.shape[0] * A.shape[1] ))*100.  , "\n")
 A[np.abs(A) < eps] = 0.
+
 A = np.hstack((A, -np.eye(b.shape[0])))
 c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
-
-# A_sparse = csc_matrix(A,shape=A.shape)
-# assert A_sparse.shape == A.shape
-
 results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True,'disp':True,'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
 result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n " 
 print(result)
 result_vec = results['x']
 psi = result_vec[:b.shape[0]]
+error = np.sum(result_vec[b.shape[0]:])
+print("Total error ", error)
+
+# print(A.shape)
+# transformer = random_projection.GaussianRandomProjection()
+# A = transformer.fit_transform(A)
+# print(A.shape)
+
+# psi = nnls(A,b)[0]
+
+
 # U,s,V = linalg.svd(F)
 # psi =  V[-1].clip(min=0) + w_prev
 # psi = (pred_lik) * psi
@@ -186,6 +236,12 @@ new_proposal = np.dot( psi,  norm.pdf(X, loc=x_prev.reshape(-1,1), scale=sigma_k
 assert np.isclose(np.sum(apf_lambda),1.)
 assert np.isclose(np.sum(psi),1.)
 
+assert np.isclose(simps(true_post, dx=x[1]-x[0]),1.)
+assert np.isclose(simps(bpf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
+assert np.isclose(simps(apf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
+assert np.isclose(simps(iapf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
+assert np.isclose(simps(new_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
+
 ax[1].plot(x,bpf_proposal, c='b', label='BPF proposal')
 ax[2].plot(x,apf_proposal, c='y',label='APF proposal')
 ax[3].plot(x,iapf_proposal, c='g',label='IAPF proposal')
@@ -194,17 +250,16 @@ ax[4].plot(x,new_proposal, c='m',label='NEW proposal')
 for i in range(5):
 	ax[i].plot(x,true_post, c='k',label='True')
 
-# ax[0].legend(['Kernel 0', 'Kernel 1', 'Kernel 2', 'Kernel 3', 'Likelihood', 'True'])
 ax[1].legend(['BPF Proposal', 'True'])
 ax[2].legend(['APF Proposal', 'True'])
 ax[3].legend(['IAPF Proposal', 'True'])
 ax[4].legend(['NEW Proposal', 'True'])
 
-assert np.isclose(simps(true_post, dx=x[1]-x[0]),1.)
-assert np.isclose(simps(bpf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
-assert np.isclose(simps(apf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
-assert np.isclose(simps(iapf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
-assert np.isclose(simps(new_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 
-# plt.show()
-plt.savefig("test2.png", bbox_inches='tight')
+print("Chi-square for BPF: ", chi_square(true_post,bpf_proposal,x))
+print("Chi-square for APF: ", chi_square(true_post,apf_proposal,x))
+print("Chi-square for IAPF: ", chi_square(true_post,iapf_proposal,x))
+print("Chi-square for NPF: ", chi_square(true_post,new_proposal,x))
+
+plt.show()
+# plt.savefig("test2.png", bbox_inches='tight')
