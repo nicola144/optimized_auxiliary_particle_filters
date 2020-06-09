@@ -33,8 +33,8 @@ transition_matrix = np.array([[1, 0.1], [0, 1]])
 transition_offset = np.array([-0.1, 0.1])
 observation_matrix = np.eye(2) + random_state.randn(2, 2) * 0.1
 observation_offset = np.array([1.0, -1.0])
-transition_covariance = np.eye(2)
-# observation_covariance = np.eye(2) + random_state.randn(2, 2) * 0.1
+transition_covariance = np.eye(2) 
+# observation_covariance = np.eye(2) + random_state.randn(2, 2) * 0.1  # original
 observation_covariance = np.eye(2) * 0.1
 initial_state_mean = np.array([5, -5])
 initial_state_covariance = np.array([[1, 0.1], [-0.1, 1]])
@@ -73,6 +73,9 @@ filtered_state_estimates, filtered_covariances = bpf.filter(observations)
 # filtered_state_estimates, filtered_covariances = kf.filter(observations)
 # smoothed_state_estimates, smoothed_covariances = kf.smooth(observations)
 
+print(np.average((filtered_state_estimates - states)**2, axis=0))
+# sys.exit()
+
 # draw estimates
 plt.figure()
 lines_true = plt.plot(states[:,0], color='b')
@@ -81,4 +84,4 @@ lines_filt = plt.plot(filtered_state_estimates[:,0], color='r')
 cov = plt.fill_between(np.arange(len(filtered_state_estimates[:,0])), filtered_state_estimates[:,0] - np.sqrt(filtered_covariances[:,0,0]), filtered_state_estimates[:,0] + np.sqrt(filtered_covariances[:,0,0]), color="orange", alpha=0.5, label="filt_std")
 plt.legend((lines_true[0], lines_filt[0], cov), ('true', 'filtered', 'filt_std'))
 
-plt.savefig('bpf2.png')
+plt.show()

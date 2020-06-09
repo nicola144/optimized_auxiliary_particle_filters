@@ -125,11 +125,12 @@ class LinearGaussianAPF(APF):
     def observation_density(self,obs,mean,**params):
         liks = []
         for m in range(self.n_particle):
-            liks.append(multivariate_normal_scipy.pdf(obs, mean=mean[-1][m] + params['offset'], cov=self.observation_cov))
+            liks.append(multivariate_normal_scipy.pdf(obs, np.dot(self.observation_mat, mean=mean[-1][m]) + params['offset'], cov=self.observation_cov))
         return np.array(liks)
 
     def propagate(self, particles):
         prev_centers = particles.dot(self.transition_mat) + self.transition_offset 
+        # need these in APF for importance weight computation 
         self.prev_centers.append(prev_centers)
         res = prev_centers + np.random.multivariate_normal(mean=np.zeros(self.ndim_hidden),cov=self.transition_cov,size=self.n_particle)
         return res
@@ -152,7 +153,7 @@ class LinearGaussianBPF(BPF):
     def observation_density(self,obs,mean,**params):
         liks = []
         for m in range(self.n_particle):
-            liks.append(multivariate_normal_scipy.pdf(obs, mean=mean[-1][m] + params['offset'], cov=self.observation_cov))
+            liks.append(multivariate_normal_scipy.pdf(obs, mean= np.dot(self.observation_mat, mean[-1][m]) + params['offset'], cov=self.observation_cov))
         return np.array(liks)
 
     def propagate(self, particles):
