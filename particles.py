@@ -125,7 +125,7 @@ class LinearGaussianAPF(APF):
     def observation_density(self,obs,mean,**params):
         liks = []
         for m in range(self.n_particle):
-            liks.append(multivariate_normal_scipy.pdf(obs, np.dot(self.observation_mat, mean=mean[-1][m]) + params['offset'], cov=self.observation_cov))
+            liks.append(multivariate_normal_scipy.pdf(obs, mean=np.dot(self.observation_mat, mean[-1][m]) + params['offset'], cov=self.observation_cov))
         return np.array(liks)
 
     def propagate(self, particles):
