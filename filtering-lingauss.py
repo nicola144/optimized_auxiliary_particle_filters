@@ -7,38 +7,46 @@ from pykalman import KalmanFilter
 from scipy.linalg import eigh
 
 from particles import *
+from utils import *
 import sys
 
-# Set plotting
-params = {
-        'axes.labelsize': 18,
-        'font.size': 18,
-        'legend.fontsize': 14,
-        'xtick.labelsize': 18,
-        'ytick.labelsize': 18,
-        'text.usetex': False,
-        'figure.figsize': [15,10],
-        'axes.labelpad' : 10,
-        'lines.linewidth' : 10,
-        'legend.loc': 'lower right'
-        }
-rcParams['agg.path.chunksize'] = 10000
-rcParams.update(params)
-plt.style.use('bmh')
+dim = 2
+
+set_plotting()
+
+fig, ax = plt.subplots(1, dim)
+ax = ax.reshape(1,dim)
+
+fig.tight_layout(pad=0.3)
+plt.subplots_adjust(top=0.95)
 
 
 # specify parameters
 random_state = np.random.RandomState(0)
-transition_matrix = np.array([[1, 0.1], [0, 1]])
-transition_offset = np.array([-0.1, 0.1])
+transition_matrix = [[1, 0.1], [0, 1]]
+transition_offset = [-0.1, 0.1]
 observation_matrix = np.eye(2) + random_state.randn(2, 2) * 0.1
-observation_offset = np.array([1.0, -1.0])
-transition_covariance = np.eye(2) 
-# observation_covariance = np.eye(2) + random_state.randn(2, 2) * 0.1  # original
-observation_covariance = np.eye(2) * 0.1
-initial_state_mean = np.array([5, -5])
-initial_state_covariance = np.array([[1, 0.1], [-0.1, 1]])
+observation_offset = [1.0, -1.0]
+transition_covariance = np.eye(2)
+observation_covariance = np.eye(2) + random_state.randn(2, 2) * 0.1
+initial_state_mean = [5, -5]
+initial_state_covariance = [[1, 0.1], [-0.1, 1]]
 
+
+n_timesteps = 50
+
+# transition_matrix = random_state.randn(2, 2).T.dot(random_state.randn(2, 2)) + 5.
+# transition_offset = [0., 0.]
+# observation_matrix =  random_state.randn(2, 2).T.dot(random_state.randn(2, 2))  + 7.  #np.eye(2) * 0.7
+# observation_offset =  [0., 0.]
+# transition_covariance = np.eye(2) * 20. #was it 10 ? 15 ? 5 ? 
+# observation_covariance = np.eye(2) * 0.05
+# initial_state_mean = [0., 0.]
+# initial_state_covariance = np.eye(2)
+
+# print(transition_matrix)
+# print(observation_matrix)
+# sys.exit()
 
 assert np.all( np.linalg.eigh(transition_covariance)[0] > 0)
 assert np.all( np.linalg.eigh(observation_covariance)[0] > 0)
@@ -53,7 +61,7 @@ kf = KalmanFilter(
     random_state=random_state
 )
 states, observations = kf.sample(
-    n_timesteps=50,
+    n_timesteps=n_timesteps,
     initial_state=initial_state_mean
 )
 
@@ -66,22 +74,70 @@ bpf = LinearGaussianBPF(init_particle=random_state.multivariate_normal(mean=init
 						transition_offset=transition_offset,
 						observation_offset=observation_offset )
 
-filtered_state_estimates, filtered_covariances = bpf.filter(observations)
+apf = LinearGaussianAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=100),
+                        random_state=random_state,
+                        transition_cov=transition_covariance,
+                        observation_cov=observation_covariance,
+                        transition_mat=transition_matrix,
+                        observation_mat=observation_matrix,
+                        transition_offset=transition_offset,
+                        observation_offset=observation_offset )
+
+iapf = LinearGaussianIAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=100),
+                        random_state=random_state,
+                        transition_cov=transition_covariance,
+                        observation_cov=observation_covariance,
+                        transition_mat=transition_matrix,
+                        observation_mat=observation_matrix,
+                        transition_offset=transition_offset,
+                        observation_offset=observation_offset )
+
+npf = LinearGaussianNewAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=100),
+                        random_state=random_state,
+                        transition_cov=transition_covariance,
+                        observation_cov=observation_covariance,
+                        transition_mat=transition_matrix,
+                        observation_mat=observation_matrix,
+                        transition_offset=transition_offset,
+                        observation_offset=observation_offset )
+
+preds_bpf, covs_bpf = bpf.filter(observations)
+preds_apf, covs_apf = apf.filter(observations)
+# preds_iapf, covs_iapf = iapf.filter(observations)
+# preds_npf, covs_npf = npf.filter(observations)
 
 
 # estimate state with filtering and smoothing
-# filtered_state_estimates, filtered_covariances = kf.filter(observations)
+preds_kf, covs_kf = kf.filter(observations)
 # smoothed_state_estimates, smoothed_covariances = kf.smooth(observations)
 
-print(np.average((filtered_state_estimates - states)**2, axis=0))
-# sys.exit()
-
+print(mse(preds_bpf,states))
+print(mse(preds_apf,states))
+# print(mse(preds_iapf,states))
+# print(mse(preds_npf,states))
+print('----------\n')
+print(mse(preds_bpf,preds_kf))
+print(mse(preds_apf,preds_kf))
+# print(mse(preds_iapf,preds_kf))
+# print(mse(preds_npf,preds_kf))
 # draw estimates
-plt.figure()
-lines_true = plt.plot(states[:,0], color='b')
-lines_filt = plt.plot(filtered_state_estimates[:,0], color='r')
-# lines_smooth = plt.plot(smoothed_state_estimates, color='g')
-cov = plt.fill_between(np.arange(len(filtered_state_estimates[:,0])), filtered_state_estimates[:,0] - np.sqrt(filtered_covariances[:,0,0]), filtered_state_estimates[:,0] + np.sqrt(filtered_covariances[:,0,0]), color="orange", alpha=0.5, label="filt_std")
-plt.legend((lines_true[0], lines_filt[0], cov), ('true', 'filtered', 'filt_std'))
+for row in ax:
+    for i,col in enumerate(row):
 
+        lines_true = col.plot(states[:,i], '*--', color='k', label='true')
+
+        lines_filt_bpf = col.plot(preds_bpf[:,i], 'o--' ,color='b',label='pred_bpf')
+
+        lines_filt_apf = col.plot(preds_apf[:,i], 'v--',color='y',label='pred_apf')
+
+        # lines_filt_iapf = col.plot(preds_iapf[:,i], '2--',color='c',label='pred_iapf')
+
+        # lines_filt_npf = col.plot(preds_npf[:,i], 'D--' ,color='m',label='pred_npf')
+
+        # lines_smooth = plt.plot(smoothed_state_estimates, color='g')
+        # col.fill_between(np.arange(len(filtered_state_estimates[:,i])), filtered_state_estimates[:,i] - np.sqrt(filtered_covariances[:,i,i]), filtered_state_estimates[:,i] + np.sqrt(filtered_covariances[:,i,i]), color="orange", alpha=0.5, label="std_pred")
+        obs = observations[:,i] - observation_offset[i]
+        col.scatter(np.arange(n_timesteps), obs, s=60, facecolors='none', edgecolors='g', label='obs')
+        col.legend()
+# plt.savefig('kf.png')
 plt.show()

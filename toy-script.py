@@ -16,26 +16,12 @@ import time
 from scipy.sparse import csr_matrix,csc_matrix
 from sklearn import random_projection
 
+from utils import *
 
-def chi_square(target,proposal,x):
-  return simps( (target - proposal)**2 /(proposal), dx=x[1]-x[0])
+
 ############################################################################################
-# Set plotting
-params = {
-        'axes.labelsize': 18,
-        'font.size': 18,
-        'legend.fontsize': 14,
-        'xtick.labelsize': 18,
-        'ytick.labelsize': 18,
-        'text.usetex': False,
-        'figure.figsize': [15,10],
-        'axes.labelpad' : 10,
-        'lines.linewidth' : 10,
-        'legend.loc': 'upper left'
-        }
-rcParams['agg.path.chunksize'] = 10000
-rcParams.update(params)
-plt.style.use('bmh')
+
+set_plotting()
 
 fig, ax = plt.subplots(5, 1)
 fig.tight_layout(pad=0.3)
@@ -75,17 +61,17 @@ fig.tight_layout(pad=0.3)
 #----------------------------------------------------------------------------------
 
 # weights already normalized 
-# m = 4 # n particles
-# w_prev = np.array([0.03, 0.16, 0.16, 0.65]) # original [0.03, 0.16, 0.16, 0.65]
-# x_prev = np.array([3., 4., 5., 6.]) # original [3., 4., 5., 6.]
-# lik_center = 4. # original 2.
+m = 4 # n particles
+w_prev = np.array([0.03, 0.16, 0.16, 0.65]) # original [0.03, 0.16, 0.16, 0.65]
+x_prev = np.array([3., 4., 5., 6.]) # original [3., 4., 5., 6.]
+lik_center = 4. # original 2.
 
 #----------------------------------------------------------------------------------
 
-m=3
-w_prev = np.array([0.1,0.6,0.3]) # original [0.03, 0.16, 0.16, 0.65]
-x_prev = np.array([4.,5.,7.]) # original [3., 4., 5., 6.]
-lik_center = 6.5 # original 2.
+# m=3
+# w_prev = np.array([0.1,0.6,0.3]) # original [0.03, 0.16, 0.16, 0.65]
+# x_prev = np.array([4.,5.,7.]) # original [3., 4., 5., 6.]
+# lik_center = 6.5 # original 2.
 
 #----------------------------------------------------------------------------------
 
@@ -171,6 +157,13 @@ eps = 1e-8
 
 # new apf 
 F1 = norm.pdf(x_prev, loc=x_prev.reshape(-1,1), scale=sigma_kernels) 
+print(F1)
+print(norm.pdf(x_prev[0], loc=x_prev[0], scale=sigma_kernels))
+print(norm.pdf(x_prev[0], loc=x_prev[1], scale=sigma_kernels))
+print(norm.pdf(x_prev[0], loc=x_prev[2], scale=sigma_kernels))
+print(norm.pdf(x_prev[0], loc=x_prev[3], scale=sigma_kernels))
+
+sys.exit()
 # F2 = np.vstack(( [np.array([ pred_lik[l] *  norm.pdf(x_prev[j], loc=x_prev[l], scale=sigma_kernels) for l in range(m) ])] for j in range(m) ))
 F2 = pred_lik * norm.pdf(x_prev, loc=x_prev.reshape(-1,1), scale=sigma_kernels) 
 
