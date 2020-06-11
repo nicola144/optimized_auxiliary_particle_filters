@@ -157,15 +157,13 @@ eps = 1e-8
 
 # new apf 
 F1 = norm.pdf(x_prev, loc=x_prev.reshape(-1,1), scale=sigma_kernels) 
-print(F1)
-print(norm.pdf(x_prev[0], loc=x_prev[0], scale=sigma_kernels))
-print(norm.pdf(x_prev[0], loc=x_prev[1], scale=sigma_kernels))
-print(norm.pdf(x_prev[0], loc=x_prev[2], scale=sigma_kernels))
-print(norm.pdf(x_prev[0], loc=x_prev[3], scale=sigma_kernels))
 
-sys.exit()
+if not check_symmetric(F1):
+	print('not symm')
+	sys.exit()
+
 # F2 = np.vstack(( [np.array([ pred_lik[l] *  norm.pdf(x_prev[j], loc=x_prev[l], scale=sigma_kernels) for l in range(m) ])] for j in range(m) ))
-F2 = pred_lik * norm.pdf(x_prev, loc=x_prev.reshape(-1,1), scale=sigma_kernels) 
+F2 = pred_lik.reshape(-1,1) * norm.pdf(x_prev, loc=x_prev.reshape(-1,1), scale=sigma_kernels) 
 
 # F1[np.abs(F2) < eps] = 0.
 # F1[np.abs(F2) < eps] = 0.
@@ -180,8 +178,8 @@ F2 = pred_lik * norm.pdf(x_prev, loc=x_prev.reshape(-1,1), scale=sigma_kernels)
 # F1+= const * np.eye(F1.shape[0], F1.shape[1])
 # F2+= const * np.eye(F2.shape[0], F2.shape[1])
 
-b = np.dot(F2.T,w_prev) 
-A = F1.T
+b = np.dot(F2,w_prev) 
+A = F1
 
 # A[np.abs(A) < eps] = 0.
 # A = np.dot(A.T,A) + np.eye(A.shape[0])
@@ -190,7 +188,7 @@ A = F1.T
 # U,s,V = linalg.svd(A)
 
 # print("Percentage of zeros for A: ", 100. -  (float(np.count_nonzero(A)) / float(A.shape[0] * A.shape[1] ))*100.  , "\n")
-A[np.abs(A) < eps] = 0.
+# A[np.abs(A) < eps] = 0.
 
 A = np.hstack((A, -np.eye(b.shape[0])))
 c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))

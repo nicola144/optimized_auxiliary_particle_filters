@@ -13,29 +13,41 @@ def chi_square(target,proposal,x):
 def mse(x,y):
 	return np.average((x - y)**2,axis=0)
 
-# numerically stable normalization. works with logs
+# numerically stable normalization. works with logs!
 # def normalize(unnormalized):
 #     maxx = np.max(unnormalized);
 #     unnormalized = unnormalized - maxx;
 #     unnormalized = np.exp(unnormalized);
 #     return unnormalized / np.sum(unnormalized)
 
-# def normalize(unnormalized):
-# 	return unnormalized / np.sum(unnormalized)
+def normalize(unnormalized):
+	return unnormalized / np.sum(unnormalized)
 
-# def normalize_log(l):
-# 	return np.exp(l - logsumexp(l))
+def check_symmetric(a, rtol=1e-05, atol=1e-08):
+    return np.allclose(a, a.T, rtol=rtol, atol=atol)
+
+
+# also for logs 
+def normalize_log(l):  
+	return np.exp(l - logsumexp(l)).flatten()
 
 def logmatmulexp(log_A, log_B):
     """Given matrix log_A of shape ϴ×R and matrix log_B of shape R×I, calculates                                                                                                                                                             
     (log_A.exp() @ log_B.exp()).log() in a numerically stable way.                                                                                                                                                                           
     Has O(ϴRI) time complexity and space complexity."""
+    if len(log_B.shape) == 1:
+    	log_B = log_B.reshape(-1,1)
+
     ϴ, R = log_A.shape
     I = log_B.shape[1]
     assert log_B.shape == (R, I)
     log_A_expanded = np.broadcast_to(np.expand_dims(log_A, 2), (ϴ, R, I))
     log_B_expanded = np.broadcast_to(np.expand_dims(log_B, 0), (ϴ, R, I))
-    log_pairwise_products = log_A_expanded + log_B_expanded  # shape: (ϴ, R, I)                                                                                                                                                              
+    log_pairwise_products = log_A_expanded + log_B_expanded  # shape: (ϴ, R, I)
+
+    if log_B.shape[1] == 1:
+    	return logsumexp(log_pairwise_products, axis=1).flatten()
+
     return logsumexp(log_pairwise_products, axis=1)
 
 
