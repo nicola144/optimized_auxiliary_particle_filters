@@ -68,6 +68,10 @@ class ParticleFilter(ABC):
         for obs in tqdm(observed_sequence):
             self.predict(obs)
             p, w = self.process(obs)
+            if np.isnan(w).any():
+                print('some weights are nan')
+                sys.exit()
+
             mean.append(np.average(p, axis=0, weights=w))
             cov.append(np.cov(p, rowvar=False, aweights=w))
         return np.asarray(mean), np.asarray(cov)
@@ -190,20 +194,33 @@ class NewAPF(ParticleFilter):
         # scaled_kernels = self.scaled_transition_density(at=prev_centers[-1], mean=prev_centers[-1],observed=observed)
 
 
-        A = kernels_at_centers  # whyyyyyyyyyyyyy
+        A = kernels_at_centers  
+
         # A[np.abs(A) < 1e-9] = 0.
         # b = scaled_kernels.T.dot(self.importance_weight[-1])
         # b = np.dot(scaled_kernels,self.importance_weight[-1])
+
         b = np.matmul(scaled_kernels,self.importance_weight[-1])
 
-        # unnormalized = nnls(A,b)[0]
-        A = np.hstack((A, -np.eye(b.shape[0])))
-        c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
-        results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True,'disp':False,'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
-        result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n " 
-        print(result)
-        result_vec = results['x']
-        unnormalized = result_vec[:b.shape[0]]
+        # print(A)
+        # print(b)
+        # sys.exit()
+
+
+        unnormalized = nnls(A,b)[0]
+
+
+        # A_ub =  np.array( [ np.concatenate(( -np.ones(b.shape[0]), np.zeros(b.shape[0])  )) ] )
+        # b_ub = [- 1./self.n_particle]
+
+
+        # A = np.hstack((A, -np.eye(b.shape[0])))
+        # c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
+        # results = linprog(c=c, A_eq=A, b_eq=b, A_ub=A_ub,b_ub=b_ub, bounds=[(0,None)]*b.shape[0]*2, method='interior-point',options={'presolve':True,'disp':False,'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
+        # result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n " 
+        # print(result)
+        # result_vec = results['x']
+        # unnormalized = result_vec[:b.shape[0]]
 
         if not np.all(unnormalized >= 0. ):
             print("some negative")
@@ -212,10 +229,18 @@ class NewAPF(ParticleFilter):
         if not unnormalized.shape == (self.n_particle,): 
             print('wrong shape')
             sys.exit()
+
+        if np.all(unnormalized == 0.):
+            print('ALL zeros ... \n ')
+            sys.exit()
         
         self.simulation_weight.append(normalize(unnormalized))
 
     def multinomial_resample(self):
+        if np.isnan(self.simulation_weight[-1]).any():
+            print('some preweights nan')
+            sys.exit()
+
         index = np.random.choice(self.n_particle, self.n_particle, p=self.simulation_weight[-1])
         return self.particle[-1][index]
 

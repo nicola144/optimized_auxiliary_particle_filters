@@ -190,15 +190,15 @@ A = F1
 # print("Percentage of zeros for A: ", 100. -  (float(np.count_nonzero(A)) / float(A.shape[0] * A.shape[1] ))*100.  , "\n")
 # A[np.abs(A) < eps] = 0.
 
-A = np.hstack((A, -np.eye(b.shape[0])))
-c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
-results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True,'disp':True,'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
-result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n " 
-print(result)
-result_vec = results['x']
-psi = result_vec[:b.shape[0]]
-error = np.sum(result_vec[b.shape[0]:])
-print("Total error ", error)
+# A = np.hstack((A, -np.eye(b.shape[0])))
+# c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
+# results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True,'disp':True,'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
+# result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n " 
+# print(result)
+# result_vec = results['x']
+# psi = result_vec[:b.shape[0]]
+# error = np.sum(result_vec[b.shape[0]:])
+# print("Total error ", error)
 
 # print(A.shape)
 # transformer = random_projection.GaussianRandomProjection()
@@ -206,6 +206,21 @@ print("Total error ", error)
 # print(A.shape)
 
 # psi = nnls(A,b)[0]
+
+U,s,VT = linalg.svd(A)
+
+
+theSVD = svd(A)
+
+print(s)
+print(theSVD[0])
+
+# psi = 
+sys.exit()
+
+if not np.all(psi >= 0. ):
+	print('nope')
+	sys.exit()
 
 
 # U,s,V = linalg.svd(F)
