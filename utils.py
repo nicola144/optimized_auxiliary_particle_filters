@@ -18,7 +18,7 @@ from math import pi
 
 # mp.dps = 500
 
-random_seed = 1
+random_seed = 5
 
 np.random.seed(random_seed)
 
@@ -29,6 +29,24 @@ np.random.seed(random_seed)
 # bigfl = np.vectorize(BigFloat)
 # nnstr = np.vectorize(nstr)
 
+
+def set_plotting():
+    # Set plotting
+    params = {
+            'axes.labelsize': 18,
+            'font.size': 14,
+            'legend.fontsize': 14,
+            'xtick.labelsize': 14,
+            'ytick.labelsize': 14,
+            'text.usetex': False,
+            'figure.figsize': [20,10],
+            'axes.labelpad' : 10,
+            'lines.linewidth' : 10,
+            'legend.loc': 'lower left'
+            }
+    rcParams['agg.path.chunksize'] = 10000
+    rcParams.update(params)
+    plt.style.use('bmh')
 
 # works , but useless 
 def cost(log_params,logA,logb):
@@ -114,254 +132,3 @@ def logmatmulexp(log_A, log_B):
 
     return logsumexp(log_pairwise_products, axis=1)
 
-
-def log_like_iid_nbinom_log_params(log_lambda, n):
-    """Log likelihood for i.i.d. Gasussian measurements with
-    input being logarithm of parameters.
-
-    Parameters
-    ----------
-    log_params : array
-        Logarithm of the parameters alpha and b.
-    n : array
-        Array of counts.
-
-    Returns
-    -------
-    output : float
-        Log-likelihood.
-    """
-    log_alpha, log_b = log_params
-
-    alpha = np.exp(log_alpha)
-    b = np.exp(log_b)
-
-    return np.sum(st.nbinom.logpmf(n, alpha, 1/(1+b)))
-
-
-def set_plotting():
-	# Set plotting
-	params = {
-	        'axes.labelsize': 18,
-	        'font.size': 14,
-	        'legend.fontsize': 14,
-	        'xtick.labelsize': 14,
-	        'ytick.labelsize': 14,
-	        'text.usetex': False,
-	        'figure.figsize': [18,8],
-	        'axes.labelpad' : 10,
-	        'lines.linewidth' : 10,
-	        'legend.loc': 'upper left'
-	        }
-	rcParams['agg.path.chunksize'] = 10000
-	rcParams.update(params)
-	plt.style.use('bmh')
-
-
-def flattenn(l):
-	return [item for sublist in l for item in sublist]
-
-
-def randomUnitVector(n):
-    # unnormalized = [normalvariate(0, 1) for _ in range(n)]
-    unnormalized = flattenn([np.random.lognormal(0,1,size=1).tolist() for _ in range(n)])
-    theNorm = sqrt(sum(x * x for x in unnormalized))
-    return [x / theNorm for x in unnormalized]
-
-
-def svd_1d(A, epsilon=1e-10):
-    ''' The one-dimensional SVD '''
-
-    n, m = A.shape
-    x = randomUnitVector(min(n,m))
-    lastV = None
-    currentV = x
-
-    # print(np.log(A))
-    # sys.exit()
-    if not np.all(A >= 0.):
-        print('neg A')
-        sys.exit()
-
-    if n > m:
-        B = np.dot(A.T, A)
-    else:
-        print('here')
-        B = logmatmulexp(np.log(A.T), np.log(A))
-        print('done ')
-
-    iterations = 0
-    while True:
-        iterations += 1
-        lastV = currentV
-        currentV = logmatmulexp(B, np.log(lastV))
-        currentV = np.exp(currentV) / norm_v(np.exp(currentV))
-
-        if abs(np.dot(currentV, lastV)) > 1 - epsilon:
-            print("converged in {} iterations!".format(iterations))
-            return currentV
-
-
-def svd(A, k=None, epsilon=1e-10):
-    '''
-        Compute the singular value decomposition of a matrix A
-        using the power method. A is the input matrix, and k
-        is the number of singular values you wish to compute.
-        If k is None, this computes the full-rank decomposition.
-    '''
-    A = np.array(A, dtype=float)
-    n, m = A.shape
-    svdSoFar = []
-    if k is None:
-        k = min(n, m)
-
-    for i in range(k):
-        matrixFor1D = A.copy()
-
-        for singularValue, u, v in svdSoFar[:i]:
-            if not np.all(u >= 0.) or not np.all(v >= 0.):
-                print('neg')
-                sys.exit()
-            # matrixFor1D -= singularValue * np.outer(u, v)
-            logu = np.log(u.reshape(-1,1))
-            logv = np.log(v[np.newaxis,...])
-            decrement = np.log(singularValue) + logmatmulexp(logu,logv)
-            # out of logspace just for this
-            matrixFor1D-=np.exp(decrement)
-
-        if not np.all(matrixFor1D >= 0.):
-        	print('lready')
-        	sys.exit()
-
-        if n > m:
-            v = svd_1d(matrixFor1D, epsilon=epsilon)  # next singular vector
-            u_unnormalized = np.dot(A, v)
-            sigma = norm_v(u_unnormalized)  # next singular value
-            u = u_unnormalized / sigma
-        else:
-            u = svd_1d(matrixFor1D, epsilon=epsilon)  # next singular vector
-            v_unnormalized = np.exp(logmatmulexp(np.log(A.T), np.log(u)))
-            sigma = norm_v(v_unnormalized)  # next singular value
-            v = v_unnormalized / sigma
-
-        svdSoFar.append((sigma, u, v))
-
-    singularValues, us, vs = [np.array(x) for x in zip(*svdSoFar)]
-    return singularValues, us.T, vs
-
-
-# def randomUnitVector(n):
-#     # unnormalized = [normalvariate(0, 1) for _ in range(n)]
-#     unnormalized = flattenn([np.random.lognormal(0,1,size=1).tolist() for _ in range(n)])
-
-#     theNorm = sum(x * x for x in unnormalized)
-#     # dont really need the sqrt 
-#     return [x / theNorm for x in unnormalized]
-
-
-# def svd_1d(A, epsilon=1e-10):
-#     ''' The one-dimensional SVD '''
-#     # A = np.exp(A)
-#     n, m = A.shape
-#     x = np.log(randomUnitVector(min(n,m)))
-#     lastV = None
-#     currentV = x
-
-#     if n > m:
-#         print('no')
-#         B = np.dot(A.T, A)
-#     else:
-#         # B = np.dot(A, A.T)
-#         B = logmatmulexp(A, A.T)
-
-#     iterations = 0
-#     while True:
-#         iterations += 1
-#         lastV = currentV
-#         # currentV = np.dot(B, lastV)
-#         # currentV = currentV / norm_v(currentV)
-#         currentV = logmatmulexp(B, lastV)
-#         currentV = np.logaddexp( currentV, -np.log(norm_v( np.exp(currentV) ))  )
-
-#         # if abs(np.dot(currentV, lastV)) > 1 - epsilon:
-#         if abs(logmatmulexp(currentV.reshape(1,-1), lastV.reshape(-1,1))) > 1 - epsilon:
-#             print("converged in {} iterations!".format(iterations))
-#             return currentV
-
-
-def addlog(logA,logB):
-	assert logA.shape == logB.shape
-
-	# logA = np.log(A)
-	# logB = np.log(B)
-
-	n = logA.shape[0]
-	m = logA.shape[1]
-
-	res = np.empty((n,m))
-	for i in range(n):
-		for j in range(m):
-			a = np.array([logA[i][j], logB[i][j]]).reshape(1,-1)
-			b = np.log(np.array([1,1])).reshape(-1,1)
-			res[i][j] = logmatmulexp(a,b)
-
-	return res
-
-# # def nnnorm_v(x):
-# # 	return x.dot(x)
-
-# def svd(A, k=None, epsilon=1e-10):
-#     '''
-#         Compute the singular value decomposition of a matrix A
-#         using the power method. A is the input matrix, and k
-#         is the number of singular values you wish to compute.
-#         If k is None, this computes the full-rank decomposition.
-#     '''
-#     A = np.array(A, dtype=float)
-#     n, m = A.shape
-#     svdSoFar = []
-#     if k is None:
-#         k = min(n, m)
-
-#     for i in range(k):
-#         matrixFor1D = np.log(A.copy())
-#         # matrixFor1D = A.copy()
-#         # done_first = False
-
-#         for singularValue, u, v in svdSoFar[:i]:
-
-#             # matrixFor1D -= singularValue * np.matmul(u.reshape(-1,1),v[np.newaxis,...])
-
-#             logu = np.log(u.reshape(-1,1))
-#             logv = np.log(v[np.newaxis,...])
-#             decrement = np.logaddexp(np.log(singularValue),logmatmulexp(logu,logv))
-#             matrixFor1D = addlog(matrixFor1D, -decrement)
-
-#             # if not done_first:
-#             # 	prev = matrixFor1D
-#             # 	done_first = True
-#             # else:
-#             # 	prev = np.log(matrixFor1D)
-#             # matrixFor1D = np.exp( addlog( prev , - ( decrement ) ) )
-
-
-
-#         if n > m:
-#             v = svd_1d(matrixFor1D, epsilon=epsilon)  # next singular vector
-#             u_unnormalized = np.dot(A, v)
-#             sigma = norm_v(u_unnormalized)  # next singular value
-#             u = u_unnormalized / sigma
-#         else:
-#             u = svd_1d(matrixFor1D, epsilon=epsilon)  # next singular vector
-#             # v_unnormalized = np.dot(A.T, u)
-#             v_unnormalized = logmatmulexp(np.log(A.T), u )
-
-#             sigma = np.log(norm_v( np.exp(v_unnormalized) ))  # next singular 
-
-#             # v = v_unnormalized / sigma
-#             v = np.logaddexp(v_unnormalized, -sigma)
-
-#         svdSoFar.append((sigma, u, v))
-
-#     singularValues, us, vs = [np.array(x) for x in zip(*svdSoFar)]
-#     return np.exp(singularValues), us.T, vs

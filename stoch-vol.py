@@ -1,11 +1,17 @@
 
 
 from utils import *
+from particles import *
 
 random_state = np.random.RandomState(random_seed)
 
 dim = 2
 timesteps = 100
+n_particle_bpf = 100000
+n_particle_apf = 100
+n_particle_iapf = 100
+n_particle_npf = 100
+
 
 constant_mean = np.zeros(dim,)
 initial_cov = np.eye(dim)
@@ -40,9 +46,59 @@ for t in range(timesteps - 1):
 	obs.append(observation(curr_state))
 
 
-obs = np.array(obs)
-plt.plot(range(timesteps), obs[:, 0])
-plt.show()
+observations = np.array(obs)
+
+
+
+bpf = LinearGaussianBPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=n_particle_bpf),
+						random_state=random_state,
+						transition_cov=transition_covariance,
+						observation_cov=observation_covariance,
+						transition_mat=transition_matrix,
+						observation_mat=observation_matrix,
+						transition_offset=transition_offset,
+						observation_offset=observation_offset )
+
+apf = LinearGaussianAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=n_particle_apf),
+                        random_state=random_state,
+                        transition_cov=transition_covariance,
+                        observation_cov=observation_covariance,
+                        transition_mat=transition_matrix,
+                        observation_mat=observation_matrix,
+                        transition_offset=transition_offset,
+                        observation_offset=observation_offset )
+
+iapf = LinearGaussianIAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=n_particle_iapf),
+                        random_state=random_state,
+                        transition_cov=transition_covariance,
+                        observation_cov=observation_covariance,
+                        transition_mat=transition_matrix,
+                        observation_mat=observation_matrix,
+                        transition_offset=transition_offset,
+                        observation_offset=observation_offset )
+
+npf = LinearGaussianNewAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=n_particle_npf),
+                        random_state=random_state,
+                        transition_cov=transition_covariance,
+                        observation_cov=observation_covariance,
+                        transition_mat=transition_matrix,
+                        observation_mat=observation_matrix,
+                        transition_offset=transition_offset,
+                        observation_offset=observation_offset )
+
+mean_bpf, covs_bpf, liks_bpf, ess_bpf = bpf.filter(observations)
+mean_apf, covs_apf, liks_apf, ess_apf= apf.filter(observations)
+mean_iapf, covs_iapf, liks_iapf, ess_iapf = iapf.filter(observations)
+mean_npf, covs_npf, liks_npf, ess_npf = npf.filter(observations)
+
+
+print('-----------------------\n')
+print("MSE mean")
+print(np.average(mse(mean_apf,mean_bpf)))
+print(np.average(mse(mean_iapf,mean_bpf)))
+print(np.average(mse(mean_npf,mean_bpf)))
+print('-----------------------\n')
+print('-----------------------\n')
 
 
 
