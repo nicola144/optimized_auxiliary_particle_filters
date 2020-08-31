@@ -47,7 +47,7 @@ fig.tight_layout(pad=0.3)
 m = 4 # n particles
 w_prev = np.array([3., 1.5, 2., 3]) 
 w_prev = w_prev / np.sum(w_prev)
-x_prev = np.array([3.25, 4.57, 5.75, 6.5]) # also exactly the same . I think this is just bc of model mismatch
+x_prev = np.array([3.25, 4.57, 5.75, 6.5]) # USATO nel final
 lik_center = 5. # original 2.
 #----------------------------------------------------------------------------------
 
@@ -96,8 +96,8 @@ lik_center = 5. # original 2.
 
 # m=100
 # w_prev = np.random.normal(loc=10,scale=1.5,size=m)
-# idxs = np.random.choice(len(w_prev), math.floor(m/2))
-# w_prev[idxs]*= 10
+# idxs = np.random.choice(len(w_prev), math.floor(m/10))
+# w_prev[idxs]*= 50
 # w_prev = w_prev / np.sum(w_prev)
 # x_prev = np.random.normal(loc=5,scale=1.,size=m)
 # lik_center = 4.75 # original 2.
@@ -223,14 +223,33 @@ ax[1].plot(x,true_post, '-.', c='k',label='True')
 # plot posterior at selected eval points 
 indices = np.array([ np.where(x == x_prev[i]) for i in range(m)]).flatten().tolist()
 
-from sklearn.cluster import MeanShift
 
-clustering = MeanShift().fit(true_post[indices].reshape(-1,1))
+# from sklearn.cluster import MeanShift
+
+# clustering = MeanShift().fit(true_post[indices].reshape(-1,1))
 
 # ax[0].scatter(x_prev,true_post[indices],c=clustering.labels_)
 
+# exclude = [10,27,70]
+
+# temp = true_post[indices]
+
+# to_plot = np.delete(temp, exclude)
+
+# x_to_plot = np.delete(x_prev, exclude)
+
+# # c_to_plot = np.delete(c, [50,70])
 
 
+# ax.scatter(x_to_plot,to_plot, c='b',marker='o', s=15)
+# ax.scatter([x_prev[e] for e in exclude], [temp[e] for e in exclude] , c='r',marker='x', s=30)
+
+# for e in exclude:
+# 	ax.vlines(x_prev[e], 0., temp[e], color='r')
+
+
+# ax.scatter(x_prev[32], temp[32] , c='g',marker='o', s=20)
+# ax.vlines(x_prev[32], 0., temp[32], color='g')
 
 
 # for i in range(5):
@@ -246,4 +265,6 @@ print("Chi-square for APF: ", chi_square(true_post,apf_proposal,x))
 print("Chi-square for IAPF: ", chi_square(true_post,iapf_proposal,x))
 print("Chi-square for NPF: ", chi_square(true_post,new_proposal,x))
 
-plt.savefig("imgs/plot3.pdf", bbox_inches='tight')
+
+# plt.savefig("imgs/evalpoints.pdf", bbox_inches='tight')
+plt.show()

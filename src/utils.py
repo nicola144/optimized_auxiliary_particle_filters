@@ -13,6 +13,7 @@ from random import normalvariate
 from math import sqrt
 from math import pi
 
+from decimal import Decimal
 # from mpmath import *
 # from bigfloat import *
 
@@ -39,7 +40,7 @@ def set_plotting():
             'xtick.labelsize': 14,
             'ytick.labelsize': 14,
             'text.usetex': False,
-            'figure.figsize': [20,10],
+            'figure.figsize': [18,8],
             'axes.labelpad' : 10,
             'lines.linewidth' : 10,
             'legend.loc': 'lower left'

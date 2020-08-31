@@ -38,8 +38,8 @@ class ParticleFilter(ABC):
 		"""
         self.particle = [init_particle]
         self.n_particle, self.ndim_hidden = init_particle.shape
-        self.importance_weight = [np.log(np.ones(self.n_particle) / self.n_particle)]
-
+        self.importance_weight = [np.log(np.ones(self.n_particle) / self.n_particle)] 
+        self.indices = []
         self.random_state = random_state
 
     @abstractmethod
@@ -69,12 +69,14 @@ class ParticleFilter(ABC):
     def predict(self,observed):
     	# different with simulation weight 
         self.simulation_weight_function(observed)
-        resampled = self.multinomial_resample()
+        resampled, indices = self.multinomial_resample()
         propagated = self.propagate(resampled)
         self.particle.append(propagated)
 
         # Constant weights after resampling  (Only for bpf???)
         self.importance_weight.append(np.log(np.ones(self.n_particle) / self.n_particle))
+
+        return indices
 
     def process(self, observed):
         self.importance_weight_function(observed)
@@ -85,10 +87,12 @@ class ParticleFilter(ABC):
         cov = []
         logz_estimates = []
         ess = []
+        n_unique_sequence = []
+        w_vars = []
 
         for obs in tqdm(observed_sequence):
 
-            self.predict(obs)
+            indices = self.predict(obs)
 
             p, w = self.process(obs)
 
@@ -98,6 +102,10 @@ class ParticleFilter(ABC):
 
             logz_estimate = logsumexp( np.log(1./self.n_particle) + w  )
 
+            n_unique = np.unique(indices).shape[0]
+
+            w_var = np.var(w)
+
             if np.isnan(normalized_w).any():
                 print('some weights are nan')
                 sys.exit()
@@ -106,8 +114,10 @@ class ParticleFilter(ABC):
             cov.append(np.cov(p, rowvar=False, aweights=normalized_w))
             ess.append(ess_est)
             logz_estimates.append(logz_estimate)
+            n_unique_sequence.append(n_unique)
+            w_vars.append(w_var)
 
-        return np.asarray(mean), np.asarray(cov), np.asarray(logz_estimates), np.asarray(ess)
+        return np.asarray(mean), np.asarray(cov), np.asarray(logz_estimates), np.asarray(ess), np.asarray(n_unique_sequence), np.array(w_vars)
 
 class BPF(ParticleFilter):
     def __init__(self,init_particle,random_state):
@@ -123,7 +133,8 @@ class BPF(ParticleFilter):
         
     def multinomial_resample(self):
         index = np.random.choice(self.n_particle, self.n_particle, p=normalize_log(self.simulation_weight[-1]))
-        return self.particle[-1][index]
+        self.indices.append(index)
+        return self.particle[-1][index], index
 
 class APF(ParticleFilter):
     def __init__(self,init_particle,random_state):
@@ -139,6 +150,7 @@ class APF(ParticleFilter):
 
     def simulation_weight_function(self,observed):
         prev_centers = self.particle[-1].dot(self.transition_mat) + self.transition_offset 
+        # prev_centers =  np.matmul(self.particle[-1] - self.transition_offset, self.phi ) + self.transition_offset # for stoch vol. temporary 
 
         unnormalized = self.importance_weight[-1] + self.observation_density(obs=observed,mean=prev_centers, offset=self.observation_offset)
 
@@ -147,7 +159,9 @@ class APF(ParticleFilter):
 
     def multinomial_resample(self):
         index = np.random.choice(self.n_particle, self.n_particle, p=normalize_log(self.simulation_weight[-1]))
-        return self.particle[-1][index]
+        self.indices.append(index)
+        return self.particle[-1][index], index
+
 
 class IAPF(ParticleFilter):
 
@@ -158,7 +172,6 @@ class IAPF(ParticleFilter):
 
     def importance_weight_function(self,observed):
         prev_centers = self.prev_centers_list[-1]
-        # prev_centers = prev_centers[np.newaxis,...]
         # these should already be the correct centers
 
         kernels = self.transition_density(at=self.particle[-1], mean=prev_centers) 
@@ -174,7 +187,8 @@ class IAPF(ParticleFilter):
 
     def simulation_weight_function(self,observed):
 
-        prev_centers = self.particle[-1].dot(self.transition_mat) + self.transition_offset 
+        prev_centers = self.particle[-1].dot(self.transition_mat) + self.transition_offset # for lingauss
+        # prev_centers =  np.matmul(self.particle[-1] - self.transition_offset, self.phi ) + self.transition_offset # for stoch vol. temporary 
 
         kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers) 
 
@@ -193,7 +207,10 @@ class IAPF(ParticleFilter):
 
     def multinomial_resample(self):
         index = np.random.choice(self.n_particle, self.n_particle, p=normalize_log(self.simulation_weight[-1]))
-        return self.particle[-1][index]
+        self.indices.append(index)
+        return self.particle[-1][index], index
+
+
 
 class NewAPF(ParticleFilter):
     def __init__(self,init_particle,random_state):
@@ -218,8 +235,9 @@ class NewAPF(ParticleFilter):
     def simulation_weight_function(self,observed):
 
         prev_centers = self.particle[-1].dot(self.transition_mat) + self.transition_offset 
+        # prev_centers =  np.matmul(self.particle[-1] - self.transition_offset, self.phi ) + self.transition_offset # for stoch vol. temporary 
 
-        kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers) # it doesnt acutally matter .T since symmetric
+        kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers) 
 
         pred_lik = self.observation_density(obs=observed,mean=prev_centers, offset=self.observation_offset)
 
@@ -232,14 +250,27 @@ class NewAPF(ParticleFilter):
         A = np.exp(logA) + 0.1 * np.eye(logb.shape[0])
         b = np.exp(logb)
 
-        # K = int(self.n_particle / 100)
+        # K = int(self.n_particle / 50)
         # indices_tokeep = b.argsort()[-K:][::-1]
         # unnormalized = np.zeros(b.shape)
         # smaller_b = b[indices_tokeep]
         # temp = A[:,indices_tokeep]
         # smaller_A = temp[indices_tokeep,:]
+
+        # smallest_exp_A = np.min(smaller_A)
+        # smallest_exp_b = np.min(smaller_b)
+        # smallest = np.min([smallest_exp_A,smallest_exp_b])
+        # smallest = np.format_float_scientific(smallest)
+        # min_exp = int(re.findall(r'\d+', smallest)[-1])
+        # smaller_A = smaller_A * (10**min_exp)
+        # smaller_b = smaller_b * (10**min_exp)
+
         # res = nnls(smaller_A,smaller_b)[0]
         # np.add.at(unnormalized, indices_tokeep, res)
+
+
+
+
 
         unnormalized = nnls(A,b)[0]
 
@@ -257,7 +288,6 @@ class NewAPF(ParticleFilter):
         # if np.isnan(np.log(unnormalized)).any():
         #     print('some log  nan')
         #     sys.exit()
-
         to_append = np.log(unnormalized)
         self.simulation_weight.append(to_append)
 
@@ -274,8 +304,9 @@ class NewAPF(ParticleFilter):
     def multinomial_resample(self):
 
         index = np.random.choice(self.n_particle, self.n_particle, p=normalize_log(self.simulation_weight[-1]))
+        self.indices.append(index)
+        return self.particle[-1][index], index
 
-        return self.particle[-1][index]
 
 class LinearGaussianNewAPF(NewAPF):
     def __init__(self,init_particle,random_state, transition_cov, observation_cov, transition_mat, transition_offset, observation_mat, observation_offset):
@@ -364,6 +395,7 @@ class LinearGaussianIAPF(IAPF):
         res = prev_centers + np.random.multivariate_normal(mean=np.zeros(self.ndim_hidden),cov=self.transition_cov,size=self.n_particle)
         return res
 
+
 class LinearGaussianAPF(APF):
 
     def __init__(self,init_particle,random_state, transition_cov, observation_cov, transition_mat, transition_offset, observation_mat, observation_offset):
@@ -435,8 +467,6 @@ class LinearGaussianBPF(BPF):
         res = prev_centers + np.random.multivariate_normal(mean=np.zeros(self.ndim_hidden),cov=self.transition_cov,size=self.n_particle)
         return res
 
-
-
 class StochVolBPF(BPF):
     
     def __init__(self,init_particle,random_state, transition_cov, transition_offset, phi):
@@ -449,18 +479,6 @@ class StochVolBPF(BPF):
     # not needed to evaluate in BPF
     def transition_density(self,at,mean,**params):
         pass
-
-        # mean = np.matmul(phi, params['prev_state'] - self.transition_offset ) + self.transition_offset
-        # mean = torch.from_numpy(mean)
-        # cov = torch.from_numpy(self.transition_cov)
-
-        # at = np.expand_dims(at,axis=1)
-        # at = torch.from_numpy(at)
-
-        # cov_all = cov[None, ...].repeat_interleave(self.n_particle, 0)
-
-        # kernels = MultivariateNormal(mean, cov_all).log_prob(at)
-
 
     def observation_density(self,obs,mean,**params):
 
@@ -478,10 +496,6 @@ class StochVolBPF(BPF):
 
         obs_cov = torch.from_numpy(np.apply_along_axis(np.diag,1,obs_cov)).double()
 
-        # print(mean)
-        # print(obs_cov)
-        # sys.exit()
-
         liks = MultivariateNormal(actual_mean_all, obs_cov).log_prob(obs_all)
 
         return liks.numpy()
@@ -493,9 +507,147 @@ class StochVolBPF(BPF):
 
         return res
 
+class StochVolAPF(APF):
+    
+    def __init__(self,init_particle,random_state, transition_cov, transition_offset, phi):
+        super().__init__(init_particle,random_state) 
+        self.transition_cov = transition_cov
+        self.transition_offset = transition_offset
+        self.phi = phi
+        self.observation_offset = np.zeros(self.ndim_hidden,)
+
+    # not needed to evaluate in BPF
+    def transition_density(self,at,mean,**params):
+        pass
+
+    def observation_density(self,obs,mean,**params):
+
+        actual_mean = np.zeros((self.n_particle,self.ndim_hidden))
+
+        obs = torch.from_numpy(obs).double()
+
+        obs_all = obs[None, ...].repeat_interleave(self.n_particle, 0)
+
+        # obs_all = obs_all[:,None,:]
+
+        actual_mean_all = torch.from_numpy(actual_mean).double()
+
+        obs_cov = np.exp(mean)
+
+        obs_cov = torch.from_numpy(np.apply_along_axis(np.diag,1,obs_cov)).double()
+
+        liks = MultivariateNormal(actual_mean_all, obs_cov).log_prob(obs_all)
+
+        return liks.numpy()
+
+    def propagate(self, resampled_particles):
+        prev_centers =  np.matmul(resampled_particles - self.transition_offset, self.phi ) + self.transition_offset
+
+        self.prev_centers_list.append(prev_centers)
+
+        res = prev_centers + np.random.multivariate_normal(mean=np.zeros(self.ndim_hidden),cov=self.transition_cov,size=self.n_particle)
+
+        return res
+
+class StochVolIAPF(IAPF):
+    def __init__(self,init_particle,random_state, transition_cov, transition_offset, phi):
+        super().__init__(init_particle,random_state) 
+        self.transition_cov = transition_cov
+        self.transition_offset = transition_offset
+        self.phi = phi
+        self.observation_offset = np.zeros(self.ndim_hidden,)
 
 
+    def transition_density(self,at,mean,**params):
 
+        mean = torch.from_numpy(mean)
+        cov = torch.from_numpy(self.transition_cov)
+
+        at = np.expand_dims(at,axis=1)
+        at = torch.from_numpy(at)
+
+        cov_all = cov[None, ...].repeat_interleave(self.n_particle, 0)
+
+        kernels = MultivariateNormal(mean, cov_all).log_prob(at)
+
+        return kernels.numpy()
+
+    def observation_density(self,obs,mean,**params):
+
+        actual_mean = np.zeros((self.n_particle,self.ndim_hidden))
+
+        obs = torch.from_numpy(obs).double()
+
+        obs_all = obs[None, ...].repeat_interleave(self.n_particle, 0)
+
+        # obs_all = obs_all[:,None,:]
+
+        actual_mean_all = torch.from_numpy(actual_mean).double()
+
+        obs_cov = np.exp(mean)
+
+        obs_cov = torch.from_numpy(np.apply_along_axis(np.diag,1,obs_cov)).double()
+
+        liks = MultivariateNormal(actual_mean_all, obs_cov).log_prob(obs_all)
+
+        return liks.numpy()
+
+    def propagate(self, resampled_particles):
+        prev_centers =  np.matmul(resampled_particles - self.transition_offset, self.phi ) + self.transition_offset
+        # need these in APF for importance weight computation 
+        self.prev_centers_list.append(prev_centers)
+        res = prev_centers + np.random.multivariate_normal(mean=np.zeros(self.ndim_hidden),cov=self.transition_cov,size=self.n_particle)
+        return res
+
+class StochVolNewAPF(NewAPF):
+    def __init__(self,init_particle,random_state, transition_cov, transition_offset, phi):
+        super().__init__(init_particle,random_state) 
+        self.transition_cov = transition_cov
+        self.transition_offset = transition_offset
+        self.phi = phi
+        self.observation_offset = np.zeros(self.ndim_hidden,)
+
+
+    def transition_density(self,at,mean,**params):
+
+        mean = torch.from_numpy(mean)
+        cov = torch.from_numpy(self.transition_cov)
+
+        at = np.expand_dims(at,axis=1)
+        at = torch.from_numpy(at)
+
+        cov_all = cov[None, ...].repeat_interleave(self.n_particle, 0)
+
+        kernels = MultivariateNormal(mean, cov_all).log_prob(at)
+
+        return kernels.numpy()
+
+    def observation_density(self,obs,mean,**params):
+
+        actual_mean = np.zeros((self.n_particle,self.ndim_hidden))
+
+        obs = torch.from_numpy(obs).double()
+
+        obs_all = obs[None, ...].repeat_interleave(self.n_particle, 0)
+
+        # obs_all = obs_all[:,None,:]
+
+        actual_mean_all = torch.from_numpy(actual_mean).double()
+
+        obs_cov = np.exp(mean)
+
+        obs_cov = torch.from_numpy(np.apply_along_axis(np.diag,1,obs_cov)).double()
+
+        liks = MultivariateNormal(actual_mean_all, obs_cov).log_prob(obs_all)
+
+        return liks.numpy()
+
+    def propagate(self, resampled_particles):
+        prev_centers =  np.matmul(resampled_particles - self.transition_offset, self.phi ) + self.transition_offset
+        # need these in APF for importance weight computation 
+        self.prev_centers_list.append(prev_centers)
+        res = prev_centers + np.random.multivariate_normal(mean=np.zeros(self.ndim_hidden),cov=self.transition_cov,size=self.n_particle)
+        return res
 
 
 

@@ -12,20 +12,20 @@ import sys
 
 dim = 2
 
-n_particle_bpf = 1000
-n_particle_iapf = 1000
-n_particle_npf = 1000
+n_particle_bpf = 10
+n_particle_iapf = 10
+n_particle_npf = 10
 
 
 
 set_plotting()
 
 # for more plots
-# fig, ax = plt.subplots(1, dim)
-# ax = ax.reshape(1,dim)
-# fig.tight_layout(pad=0.3)
-# plt.subplots_adjust(top=0.95)
-# plt.tight_layout(pad=0.3)
+fig, ax = plt.subplots(1, dim)
+ax = ax.reshape(1,dim)
+fig.tight_layout(pad=0.3)
+plt.subplots_adjust(top=0.95)
+plt.tight_layout(pad=0.3)
 
 # specify parameters
 
@@ -125,10 +125,10 @@ npf = LinearGaussianNewAPF(init_particle=random_state.multivariate_normal(mean=i
                         transition_offset=transition_offset,
                         observation_offset=observation_offset )
 
-mean_bpf, covs_bpf, liks_bpf, ess_bpf = bpf.filter(observations)
-mean_apf, covs_apf, liks_apf, ess_apf= apf.filter(observations)
-mean_iapf, covs_iapf, liks_iapf, ess_iapf = iapf.filter(observations)
-mean_npf, covs_npf, liks_npf, ess_npf = npf.filter(observations)
+mean_bpf, covs_bpf, liks_bpf, ess_bpf, n_unique_bpf, w_vars_bpf = bpf.filter(observations)
+mean_apf, covs_apf, liks_apf, ess_apf, n_unique_apf, w_vars_apf = apf.filter(observations)
+mean_iapf, covs_iapf, liks_iapf, ess_iapf, n_unique_iapf, w_vars_iapf  = iapf.filter(observations)
+mean_npf, covs_npf, liks_npf, ess_npf, n_unique_npf, w_vars_npf  = npf.filter(observations)
 
 
 # estimate state with filtering and smoothing
@@ -195,38 +195,36 @@ print('-----------------------\n')
 
 
 
-# draw estimates
-# for row in ax:
-#     for i,col in enumerate(row):
+for row in ax:
+    for i,col in enumerate(row):
 
-#         # lines_true = col.plot(states[:,i], '*--', color='k', label='true')
+        # lines_true = col.plot(states[:,i], '*--', color='k', label='true')
 
-#         lines_filt_kf = col.plot(mean_kf[:,i], linewidth=3 ,color='r',label='mean_kf')
+        lines_filt_kf = col.plot(mean_kf[:,i], linewidth=2 ,color='r',label='mean_kf')
 
-#         # lines_filt_bpf = col.plot(mean_bpf[:,i], 'o--' ,color='b',label='mean_bpf')
+        lines_filt_bpf = col.plot(mean_bpf[:,i],  'o--' , linewidth=1.2 ,color='b',label='mean_bpf',markersize=3)
 
-#         # lines_filt_apf = col.plot(mean_apf[:,i], 'v--',color='y',label='mean_apf')
+        lines_filt_apf = col.plot(mean_apf[:,i], 'v--', linewidth=1.2,color='y',label='mean_apf',markersize=3)
 
-#         # lines_filt_iapf = col.plot(mean_iapf[:,i], '2--',color='c',label='mean_iapf')
+        lines_filt_iapf = col.plot(mean_iapf[:,i], '2--', linewidth=1.2 ,color='c',label='mean_iapf',markersize=3)
 
-#         lines_filt_npf = col.plot(mean_npf[:,i], 'D--' ,color='m',label='mean_npf')
+        lines_filt_npf = col.plot(mean_npf[:,i], 'D--' , linewidth=1.2 ,color='m',label='mean_npf',markersize=3)
 
-#         # lines_smooth = plt.plot(smoothed_state_estimates, color='g')
+        # lines_smooth = plt.plot(smoothed_state_estimates, color='g')
 
-#         col.fill_between(np.arange(len(mean_npf[:,i])), mean_npf[:,i] - np.sqrt(covs_npf[:,i,i]), mean_npf[:,i] + np.sqrt(covs_npf[:,i,i]), edgecolor=(1 , 0.2, 0.8, 0.99) , facecolor=(1, 0.2, 0.8, 0.3), label="std_npf", linewidth=1.5)
-#         # col.fill_between(np.arange(len(mean_bpf[:,i])), mean_bpf[:,i] - np.sqrt(covs_bpf[:,i,i]), mean_bpf[:,i] + np.sqrt(covs_bpf[:,i,i]), edgecolor=(0 , 0, 1, 0.99) , facecolor=(0, 0, 1, 0.3), label="std_bpf", linewidth=1)
-#         # col.fill_between(np.arange(len(mean_apf[:,i])), mean_apf[:,i] - np.sqrt(covs_apf[:,i,i]), mean_apf[:,i] + np.sqrt(covs_apf[:,i,i]), edgecolor=(0 , 1, 1, 0.99) , facecolor=(0, 1, 1, 0.3), label="std_apf")
-#         # col.fill_between(np.arange(len(mean_iapf[:,i])), mean_iapf[:,i] - np.sqrt(covs_iapf[:,i,i]), mean_iapf[:,i] + np.sqrt(covs_iapf[:,i,i]), edgecolor=(0.2 , 0.8, 0.8, 0.9) , facecolor=(0.2, 0.8, 0.8, 0.3), label="std_iapf")
-#         col.fill_between(np.arange(len(mean_kf[:,i])), mean_kf[:,i] - np.sqrt(covs_kf[:,i,i]), mean_kf[:,i] + np.sqrt(covs_kf[:,i,i]), edgecolor=(1, 0, 0, 0.9), facecolor=(1, 0, 0, 0.3),  label="std_kf", linewidth=1.5)
+        # col.fill_between(np.arange(len(mean_npf[:,i])), mean_npf[:,i] - np.sqrt(covs_npf[:,i,i]), mean_npf[:,i] + np.sqrt(covs_npf[:,i,i]), edgecolor=(1 , 0.2, 0.8, 0.99) , facecolor=(1, 0.2, 0.8, 0.3), label="std_npf", linewidth=1.5)
+        # col.fill_between(np.arange(len(mean_bpf[:,i])), mean_bpf[:,i] - np.sqrt(covs_bpf[:,i,i]), mean_bpf[:,i] + np.sqrt(covs_bpf[:,i,i]), edgecolor=(0 , 0, 1, 0.99) , facecolor=(0, 0, 1, 0.3), label="std_bpf", linewidth=1)
+        # col.fill_between(np.arange(len(mean_apf[:,i])), mean_apf[:,i] - np.sqrt(covs_apf[:,i,i]), mean_apf[:,i] + np.sqrt(covs_apf[:,i,i]), edgecolor=(0 , 1, 1, 0.99) , facecolor=(0, 1, 1, 0.3), label="std_apf")
+        # col.fill_between(np.arange(len(mean_iapf[:,i])), mean_iapf[:,i] - np.sqrt(covs_iapf[:,i,i]), mean_iapf[:,i] + np.sqrt(covs_iapf[:,i,i]), edgecolor=(0.2 , 0.8, 0.8, 0.9) , facecolor=(0.2, 0.8, 0.8, 0.3), label="std_iapf")
+        # col.fill_between(np.arange(len(mean_kf[:,i])), mean_kf[:,i] - np.sqrt(covs_kf[:,i,i]), mean_kf[:,i] + np.sqrt(covs_kf[:,i,i]), edgecolor=(1, 0, 0, 0.9), facecolor=(1, 0, 0, 0.3),  label="std_kf", linewidth=1.5)
 
-#         obs = observations[:,i] - observation_offset[i]
-#         col.scatter(np.arange(n_timesteps), obs, s=70, facecolors='none', edgecolors='g', label='obs', linewidth=1.2)
-#         col.legend()
+        obs = observations[:,i] - observation_offset[i]
+        col.scatter(np.arange(n_timesteps), obs, s=50, facecolors='none', edgecolors='g', label='obs', linewidth=1)
+        col.legend()
 
-# plt.xlabel('timestep')
-# plt.ylabel('hidden state')
+plt.xlabel('timestep')
+plt.ylabel('hidden state')
 
-# # plt.show()
-# plt.savefig('imgs/plot5.pdf', bbox_inches='tight')
+plt.savefig('imgs/means.pdf', bbox_inches='tight')
 
 
