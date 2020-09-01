@@ -443,7 +443,7 @@ class StochVolAPF(APF, StochVolPF):
                                             transition_offset=transition_offset,
                                             phi=phi)
 
-class StochVolIAPF(APF, StochVolPF):
+class StochVolIAPF(IAPF, StochVolPF):
     def __init__(self,init_particle,random_state, transition_cov, transition_offset, phi):
         super(StochVolIAPF, self).__init__(init_particle=init_particle,
                                             random_state=random_state, 
