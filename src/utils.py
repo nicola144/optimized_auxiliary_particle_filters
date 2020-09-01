@@ -13,7 +13,7 @@ from random import normalvariate
 from math import sqrt
 from math import pi
 
-from decimal import Decimal
+# from decimal import Decimal
 # from mpmath import *
 # from bigfloat import *
 
@@ -48,39 +48,6 @@ def set_plotting():
     rcParams['agg.path.chunksize'] = 10000
     rcParams.update(params)
     plt.style.use('bmh')
-
-# works , but useless 
-def cost(log_params,logA,logb):
-
-	with precision(300):
-
-	   # print(log_params)
-
-	   left = np.logaddexp(  logmatmulexp(logA, log_params) , - logb).reshape(1,-1) 
-
-	   # print(left)
-	   
-	   right = np.logaddexp(  logmatmulexp(logA, log_params), - logb   ) 
-
-	   # print(right)
-
-	   res = logmatmulexp( left, right )
-
-	   # print(np.exp(res))
-
-	   return res
-
-
-# def cost(log_params,logA,logb):
-
-# 	pred = logmatmulexp(logA,log_params)
-
-# 	numerator = 2 * np.logaddexp( logb , - pred  )
-
-# 	denominator = pred
-
-# 	return  np.sum(numerator - denominator)
-
 
 def is_pos_def(x):
     return np.all(np.linalg.eigvals(x) > 0)
@@ -132,4 +99,27 @@ def logmatmulexp(log_A, log_B):
     	return logsumexp(log_pairwise_products, axis=1).flatten()
 
     return logsumexp(log_pairwise_products, axis=1)
+
+# works , but useless 
+# def cost(log_params,logA,logb):
+
+#   with precision(300):
+
+#      # print(log_params)
+
+#      left = np.logaddexp(  logmatmulexp(logA, log_params) , - logb).reshape(1,-1) 
+
+#      # print(left)
+       
+#      right = np.logaddexp(  logmatmulexp(logA, log_params), - logb   ) 
+
+#      # print(right)
+
+#      res = logmatmulexp( left, right )
+
+#      # print(np.exp(res))
+
+#      return res
+
+
 

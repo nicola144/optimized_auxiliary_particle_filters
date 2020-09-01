@@ -195,36 +195,35 @@ print('-----------------------\n')
 
 
 
-for row in ax:
-    for i,col in enumerate(row):
+# for row in ax:
+#     for i,col in enumerate(row):
 
-        # lines_true = col.plot(states[:,i], '*--', color='k', label='true')
+#         # lines_true = col.plot(states[:,i], '*--', color='k', label='true')
 
-        lines_filt_kf = col.plot(mean_kf[:,i], linewidth=2 ,color='r',label='mean_kf')
+#         lines_filt_kf = col.plot(mean_kf[:,i], linewidth=2 ,color='r',label='mean_kf')
 
-        lines_filt_bpf = col.plot(mean_bpf[:,i],  'o--' , linewidth=1.2 ,color='b',label='mean_bpf',markersize=3)
+#         lines_filt_bpf = col.plot(mean_bpf[:,i],  'o--' , linewidth=1.2 ,color='b',label='mean_bpf',markersize=3)
 
-        lines_filt_apf = col.plot(mean_apf[:,i], 'v--', linewidth=1.2,color='y',label='mean_apf',markersize=3)
+#         lines_filt_apf = col.plot(mean_apf[:,i], 'v--', linewidth=1.2,color='y',label='mean_apf',markersize=3)
 
-        lines_filt_iapf = col.plot(mean_iapf[:,i], '2--', linewidth=1.2 ,color='c',label='mean_iapf',markersize=3)
+#         lines_filt_iapf = col.plot(mean_iapf[:,i], '2--', linewidth=1.2 ,color='c',label='mean_iapf',markersize=3)
 
-        lines_filt_npf = col.plot(mean_npf[:,i], 'D--' , linewidth=1.2 ,color='m',label='mean_npf',markersize=3)
+#         lines_filt_npf = col.plot(mean_npf[:,i], 'D--' , linewidth=1.2 ,color='m',label='mean_npf',markersize=3)
 
-        # lines_smooth = plt.plot(smoothed_state_estimates, color='g')
+#         # lines_smooth = plt.plot(smoothed_state_estimates, color='g')
 
-        # col.fill_between(np.arange(len(mean_npf[:,i])), mean_npf[:,i] - np.sqrt(covs_npf[:,i,i]), mean_npf[:,i] + np.sqrt(covs_npf[:,i,i]), edgecolor=(1 , 0.2, 0.8, 0.99) , facecolor=(1, 0.2, 0.8, 0.3), label="std_npf", linewidth=1.5)
-        # col.fill_between(np.arange(len(mean_bpf[:,i])), mean_bpf[:,i] - np.sqrt(covs_bpf[:,i,i]), mean_bpf[:,i] + np.sqrt(covs_bpf[:,i,i]), edgecolor=(0 , 0, 1, 0.99) , facecolor=(0, 0, 1, 0.3), label="std_bpf", linewidth=1)
-        # col.fill_between(np.arange(len(mean_apf[:,i])), mean_apf[:,i] - np.sqrt(covs_apf[:,i,i]), mean_apf[:,i] + np.sqrt(covs_apf[:,i,i]), edgecolor=(0 , 1, 1, 0.99) , facecolor=(0, 1, 1, 0.3), label="std_apf")
-        # col.fill_between(np.arange(len(mean_iapf[:,i])), mean_iapf[:,i] - np.sqrt(covs_iapf[:,i,i]), mean_iapf[:,i] + np.sqrt(covs_iapf[:,i,i]), edgecolor=(0.2 , 0.8, 0.8, 0.9) , facecolor=(0.2, 0.8, 0.8, 0.3), label="std_iapf")
-        # col.fill_between(np.arange(len(mean_kf[:,i])), mean_kf[:,i] - np.sqrt(covs_kf[:,i,i]), mean_kf[:,i] + np.sqrt(covs_kf[:,i,i]), edgecolor=(1, 0, 0, 0.9), facecolor=(1, 0, 0, 0.3),  label="std_kf", linewidth=1.5)
+#         # col.fill_between(np.arange(len(mean_npf[:,i])), mean_npf[:,i] - np.sqrt(covs_npf[:,i,i]), mean_npf[:,i] + np.sqrt(covs_npf[:,i,i]), edgecolor=(1 , 0.2, 0.8, 0.99) , facecolor=(1, 0.2, 0.8, 0.3), label="std_npf", linewidth=1.5)
+#         # col.fill_between(np.arange(len(mean_bpf[:,i])), mean_bpf[:,i] - np.sqrt(covs_bpf[:,i,i]), mean_bpf[:,i] + np.sqrt(covs_bpf[:,i,i]), edgecolor=(0 , 0, 1, 0.99) , facecolor=(0, 0, 1, 0.3), label="std_bpf", linewidth=1)
+#         # col.fill_between(np.arange(len(mean_apf[:,i])), mean_apf[:,i] - np.sqrt(covs_apf[:,i,i]), mean_apf[:,i] + np.sqrt(covs_apf[:,i,i]), edgecolor=(0 , 1, 1, 0.99) , facecolor=(0, 1, 1, 0.3), label="std_apf")
+#         # col.fill_between(np.arange(len(mean_iapf[:,i])), mean_iapf[:,i] - np.sqrt(covs_iapf[:,i,i]), mean_iapf[:,i] + np.sqrt(covs_iapf[:,i,i]), edgecolor=(0.2 , 0.8, 0.8, 0.9) , facecolor=(0.2, 0.8, 0.8, 0.3), label="std_iapf")
+#         # col.fill_between(np.arange(len(mean_kf[:,i])), mean_kf[:,i] - np.sqrt(covs_kf[:,i,i]), mean_kf[:,i] + np.sqrt(covs_kf[:,i,i]), edgecolor=(1, 0, 0, 0.9), facecolor=(1, 0, 0, 0.3),  label="std_kf", linewidth=1.5)
 
-        obs = observations[:,i] - observation_offset[i]
-        col.scatter(np.arange(n_timesteps), obs, s=50, facecolors='none', edgecolors='g', label='obs', linewidth=1)
-        col.legend()
+#         obs = observations[:,i] - observation_offset[i]
+#         col.scatter(np.arange(n_timesteps), obs, s=50, facecolors='none', edgecolors='g', label='obs', linewidth=1)
+#         col.legend()
 
-plt.xlabel('timestep')
-plt.ylabel('hidden state')
+# plt.xlabel('timestep')
+# plt.ylabel('hidden state')
 
-plt.savefig('imgs/means.pdf', bbox_inches='tight')
-
+# plt.show()
 
