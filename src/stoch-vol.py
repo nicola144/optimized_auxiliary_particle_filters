@@ -15,12 +15,12 @@ plt.subplots_adjust(top=0.95)
 plt.tight_layout(pad=0.3)
 
 
-dim = 5
+dim = 2
 timesteps = 100
-n_particle_bpf = 1000
-n_particle_apf = 1000
-n_particle_iapf = 1000
-n_particle_npf = 1000
+n_particle_bpf = 100
+n_particle_apf = 100
+n_particle_iapf = 100
+n_particle_npf = 100
 
 
 constant_mean = np.zeros(dim,)
@@ -130,9 +130,9 @@ ax[0][1].plot(ess_npf, 'm', label='oapf')
 ax[0][1].set(xlabel="timestep",ylabel="ess")
 plt.legend()
 
-plt.savefig('5svm.pdf', bbox_inches='tight')
+# plt.savefig('5svm.pdf', bbox_inches='tight')
 
-# plt.show()
+plt.show()
 
 # i = 0
 # plt.plot(states[:,i],'r', label='true_state')
