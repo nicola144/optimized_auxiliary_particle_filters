@@ -12,9 +12,15 @@ from utils import *
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
 
+# Decides whether to perform reduction of the optimization problem given by OAPF
 reduce=True
 
-# Abstract base class for a particle filter
+#     ParticleFilter
+#       /       \
+# BPF/APF etc   Lin/Gauss/StochVol etc
+#       \        /
+#      Concrete PF
+#
 
 # NOTE : Originally inspired by implementation in : https://github.com/ctgk/PRML/blob/master/prml/markov/particle.py
 class ParticleFilter(ABC):
@@ -45,21 +51,22 @@ class ParticleFilter(ABC):
     @abstractmethod
     def simulation_weight_function(self, observed):
         pass
-
+    # Of course, one could use more advanced resampling schemes
     def multinomial_resample(self):
         index = np.random.choice(self.n_particle, self.n_particle, p=normalize_log(self.simulation_weight[-1]))
         self.indices.append(index)
         return self.particle[-1][index], index
 
-    def predict(self, observed):
+    # Bring particles forward
+    def simulate(self, observed):
         self.simulation_weight_function(observed)
         resampled, indices = self.multinomial_resample()
         propagated = self.propagate(resampled)
         self.particle.append(propagated)
-
         return indices
 
-    def process(self, observed):
+    # Weight particles
+    def weight(self, observed):
         self.importance_weight_function(observed)
         return self.particle[-1], self.importance_weight[-1]
 
@@ -72,19 +79,14 @@ class ParticleFilter(ABC):
         w_vars = []
 
         for obs in tqdm(observed_sequence):
-
-            indices = self.predict(obs)
-
-            p, w = self.process(obs)
-
+            # Can be used for unique particle count
+            indices = self.simulate(obs)
+            p, w = self.weight(obs)
             normalized_w = normalize_log(w)
-
+            # ESS estimate uses normalized weights
             ess_est = 1. / normalized_w.T.dot(normalized_w)
-
-            logz_estimate = logsumexp(np.log(1. / self.n_particle) + w)
-
+            logz_estimate = logsumexp(np.log(1. / self.n_particle) + w) #not sure this works
             n_unique = np.unique(indices).shape[0]
-
             w_var = np.var(w)
 
             if np.isnan(normalized_w).any():
@@ -105,7 +107,6 @@ class ParticleFilter(ABC):
 class BPF(ParticleFilter):
     def __init__(self, **params):
         super().__init__(**params)
-
         self.simulation_weight = []
         self.prev_centers_list = []
 
@@ -120,13 +121,11 @@ class BPF(ParticleFilter):
 class APF(ParticleFilter):
     def __init__(self, **params):
         super().__init__(**params)
-
         self.simulation_weight = []
         self.prev_centers_list = []
 
     def importance_weight_function(self, observed):
         prev_centers = self.prev_centers_list[-1]
-
         unnormalized = self.observation_density(obs=observed, mean=self.particle[-1],
                                                 offset=self.observation_offset) - self.observation_density(obs=observed,
                                                                                                            mean=prev_centers,
@@ -135,10 +134,8 @@ class APF(ParticleFilter):
 
     def simulation_weight_function(self, observed):
         prev_centers = self.compute_prev_centers()
-
         unnormalized = self.importance_weight[-1] + self.observation_density(obs=observed, mean=prev_centers,
                                                                              offset=self.observation_offset)
-
         self.simulation_weight.append(unnormalized)
 
 
@@ -146,34 +143,25 @@ class IAPF(ParticleFilter):
 
     def __init__(self, **params):
         super().__init__(**params)
-
         self.simulation_weight = []
         self.prev_centers_list = []
 
     # This is really the same for IAPF and OAPF
     def importance_weight_function(self, observed):
         prev_centers = self.prev_centers_list[-1]
-
         kernels = self.transition_density(at=self.particle[-1], mean=prev_centers)
-
         predictive = logmatmulexp(kernels, np.array(self.importance_weight[-1]))
         proposal = logmatmulexp(kernels, np.array(self.simulation_weight[-1]))
-
         lik = self.observation_density(obs=observed, mean=self.particle[-1], offset=self.observation_offset)
-
         unnormalized = lik + predictive - proposal
         self.importance_weight[-1] = unnormalized
 
     def simulation_weight_function(self, observed):
         prev_centers = self.compute_prev_centers()
-
         kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers)
-
         pred_lik = self.observation_density(obs=observed, mean=prev_centers, offset=self.observation_offset)
-
         sum_numerator = logmatmulexp(kernels_at_centers, np.array(self.importance_weight[-1]))
         sum_denominator = logmatmulexp(kernels_at_centers, np.ones(kernels_at_centers.shape[0]))
-
         unnormalized = pred_lik + sum_numerator - sum_denominator
         self.simulation_weight.append(unnormalized)
 
