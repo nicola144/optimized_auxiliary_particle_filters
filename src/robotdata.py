@@ -16,9 +16,8 @@ Kalman Filter.
 '''
 import numpy as np
 import pylab as pl
-
-from pykalman.datasets import load_robot
 from pykalman import KalmanFilter
+from pykalman.datasets import load_robot
 
 # Initialize the Kalman Filter
 data = load_robot()

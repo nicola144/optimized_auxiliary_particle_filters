@@ -1,7 +1,7 @@
 
 
-from utils import *
 from particles import *
+from utils import *
 
 random_state = np.random.RandomState(random_seed)
 

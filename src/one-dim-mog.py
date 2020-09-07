@@ -1,24 +1,12 @@
-import numpy as np 
-import matplotlib.pyplot as plt
-from matplotlib import rcParams
-from matplotlib import cm
-from scipy.stats import norm as norm_scipy
-from matplotlib.pyplot import cm
-from scipy import linalg
-from scipy.integrate import simps
-from numpy.linalg import matrix_rank
-from scipy.linalg import null_space
-from scipy.optimize import linprog,nnls
-import math
 import sys
-from tqdm import tqdm
-import time
-from scipy.sparse import csr_matrix,csc_matrix
-from sklearn import random_projection
-from sklearn.decomposition import PCA
 
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.pyplot import cm
+from scipy.integrate import simps
+from scipy.optimize import linprog
+from scipy.stats import norm as norm_scipy
 from utils import *
-
 
 ############################################################################################
 

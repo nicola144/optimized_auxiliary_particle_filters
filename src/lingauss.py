@@ -1,14 +1,8 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
-from matplotlib import cm
-
-from pykalman import KalmanFilter
-from scipy.linalg import eigh
-
+import numpy as np
 from particles import *
+from pykalman import KalmanFilter
 from utils import *
-import sys
 
 dim = 2
 
@@ -16,13 +10,11 @@ n_particle_bpf = 10
 n_particle_iapf = 10
 n_particle_npf = 10
 
-
-
 set_plotting()
 
 # for more plots
 fig, ax = plt.subplots(1, dim)
-ax = ax.reshape(1,dim)
+ax = ax.reshape(1, dim)
 fig.tight_layout(pad=0.3)
 plt.subplots_adjust(top=0.95)
 plt.tight_layout(pad=0.3)
@@ -71,11 +63,9 @@ observation_covariance = np.eye(dim) * .2
 initial_state_mean = np.zeros((dim,))
 initial_state_covariance = np.eye(dim)
 
-
-assert np.all( np.linalg.eigh(transition_covariance)[0] > 0 )
-assert np.all( np.linalg.eigh(observation_covariance)[0] > 0 )
-assert np.all( np.linalg.eigh(initial_state_covariance)[0] > 0 )
-
+assert np.all(np.linalg.eigh(transition_covariance)[0] > 0)
+assert np.all(np.linalg.eigh(observation_covariance)[0] > 0)
+assert np.all(np.linalg.eigh(initial_state_covariance)[0] > 0)
 
 # sample from model
 kf = KalmanFilter(
@@ -89,61 +79,67 @@ states, observations = kf.sample(
     initial_state=initial_state_mean
 )
 
-bpf = LinearGaussianBPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=n_particle_bpf),
-						random_state=random_state,
-						transition_cov=transition_covariance,
-						observation_cov=observation_covariance,
-						transition_mat=transition_matrix,
-						observation_mat=observation_matrix,
-						transition_offset=transition_offset,
-						observation_offset=observation_offset )
+bpf = LinearGaussianBPF(
+    init_particle=random_state.multivariate_normal(mean=initial_state_mean, cov=initial_state_covariance,
+                                                   size=n_particle_bpf),
+    random_state=random_state,
+    transition_cov=transition_covariance,
+    observation_cov=observation_covariance,
+    transition_mat=transition_matrix,
+    observation_mat=observation_matrix,
+    transition_offset=transition_offset,
+    observation_offset=observation_offset)
 
-apf = LinearGaussianAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=n_particle_bpf),
-                        random_state=random_state,
-                        transition_cov=transition_covariance,
-                        observation_cov=observation_covariance,
-                        transition_mat=transition_matrix,
-                        observation_mat=observation_matrix,
-                        transition_offset=transition_offset,
-                        observation_offset=observation_offset )
+apf = LinearGaussianAPF(
+    init_particle=random_state.multivariate_normal(mean=initial_state_mean, cov=initial_state_covariance,
+                                                   size=n_particle_bpf),
+    random_state=random_state,
+    transition_cov=transition_covariance,
+    observation_cov=observation_covariance,
+    transition_mat=transition_matrix,
+    observation_mat=observation_matrix,
+    transition_offset=transition_offset,
+    observation_offset=observation_offset)
 
-iapf = LinearGaussianIAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=n_particle_iapf),
-                        random_state=random_state,
-                        transition_cov=transition_covariance,
-                        observation_cov=observation_covariance,
-                        transition_mat=transition_matrix,
-                        observation_mat=observation_matrix,
-                        transition_offset=transition_offset,
-                        observation_offset=observation_offset )
+iapf = LinearGaussianIAPF(
+    init_particle=random_state.multivariate_normal(mean=initial_state_mean, cov=initial_state_covariance,
+                                                   size=n_particle_iapf),
+    random_state=random_state,
+    transition_cov=transition_covariance,
+    observation_cov=observation_covariance,
+    transition_mat=transition_matrix,
+    observation_mat=observation_matrix,
+    transition_offset=transition_offset,
+    observation_offset=observation_offset)
 
-npf = LinearGaussianNewAPF(init_particle=random_state.multivariate_normal(mean=initial_state_mean,cov=initial_state_covariance,size=n_particle_npf),
-                        random_state=random_state,
-                        transition_cov=transition_covariance,
-                        observation_cov=observation_covariance,
-                        transition_mat=transition_matrix,
-                        observation_mat=observation_matrix,
-                        transition_offset=transition_offset,
-                        observation_offset=observation_offset )
+npf = LinearGaussianNewAPF(
+    init_particle=random_state.multivariate_normal(mean=initial_state_mean, cov=initial_state_covariance,
+                                                   size=n_particle_npf),
+    random_state=random_state,
+    transition_cov=transition_covariance,
+    observation_cov=observation_covariance,
+    transition_mat=transition_matrix,
+    observation_mat=observation_matrix,
+    transition_offset=transition_offset,
+    observation_offset=observation_offset)
 
 mean_bpf, covs_bpf, liks_bpf, ess_bpf, n_unique_bpf, w_vars_bpf = bpf.filter(observations)
 mean_apf, covs_apf, liks_apf, ess_apf, n_unique_apf, w_vars_apf = apf.filter(observations)
-mean_iapf, covs_iapf, liks_iapf, ess_iapf, n_unique_iapf, w_vars_iapf  = iapf.filter(observations)
-mean_npf, covs_npf, liks_npf, ess_npf, n_unique_npf, w_vars_npf  = npf.filter(observations)
-
+mean_iapf, covs_iapf, liks_iapf, ess_iapf, n_unique_iapf, w_vars_iapf = iapf.filter(observations)
+mean_npf, covs_npf, liks_npf, ess_npf, n_unique_npf, w_vars_npf = npf.filter(observations)
 
 # estimate state with filtering and smoothing
 mean_kf, covs_kf = kf.filter(observations)
-true_logliks,true_loglik = kf.loglikelihood(observations)
+true_logliks, true_loglik = kf.loglikelihood(observations)
 
 print('-----------------------\n')
 print("MSE mean")
-print(np.average(mse(mean_bpf,mean_kf)))
-print(np.average(mse(mean_apf,mean_kf)))
-print(np.average(mse(mean_iapf,mean_kf)))
-print(np.average(mse(mean_npf,mean_kf)))
+print(np.average(mse(mean_bpf, mean_kf)))
+print(np.average(mse(mean_apf, mean_kf)))
+print(np.average(mse(mean_iapf, mean_kf)))
+print(np.average(mse(mean_npf, mean_kf)))
 print('-----------------------\n')
 print('-----------------------\n')
-
 
 # lik_bpf = np.sum(liks_bpf)
 # lik_apf = np.sum(liks_apf)
@@ -154,8 +150,6 @@ print('-----------------------\n')
 # print('bpf ',lik_bpf)
 # print('apf ', lik_apf)
 # print('iapf', lik_iapf)
-
-
 
 
 # print("MSE LOGZ ")
@@ -192,9 +186,6 @@ print('-----------------------\n')
 # sys.exit()
 
 
-
-
-
 # for row in ax:
 #     for i,col in enumerate(row):
 
@@ -226,4 +217,3 @@ print('-----------------------\n')
 # plt.ylabel('hidden state')
 
 # plt.show()
-
