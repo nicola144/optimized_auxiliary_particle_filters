@@ -84,7 +84,7 @@ iapf = StochVolIAPF(init_particle=prior_sample(size=n_particle_iapf),
 						transition_offset=constant_mean,
 						phi=phi )
 
-npf = StochVolNewAPF(init_particle=prior_sample(size=n_particle_npf),
+npf = StochVolOAPF(init_particle=prior_sample(size=n_particle_npf),
 						random_state=random_state,
 						transition_cov=transition_cov,
 						transition_offset=constant_mean,

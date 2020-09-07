@@ -1,3 +1,4 @@
+import re
 import sys
 
 import matplotlib.pyplot as plt
@@ -9,9 +10,40 @@ from scipy.special import logsumexp
 
 random_seed = 5
 
-np.random.seed(random_seed)
+
+def scale_reduced_system(smaller_A,smaller_b):
+    smallest_exp_A = np.min(smaller_A)
+    smallest_exp_b = np.min(smaller_b)
+    smallest = np.min([smallest_exp_A,smallest_exp_b])
+    smallest = np.format_float_scientific(smallest)
+    min_exp = int(re.findall(r'\d+', smallest)[-1])
+    scaled_smaller_A = smaller_A * (10**min_exp)
+    scaled_smaller_b = smaller_b * (10**min_exp)
+
+    return scaled_smaller_A,scaled_smaller_b
 
 
+def reduce_system(n_particle,A,b):
+    K = int(n_particle / 2)
+    indices_tokeep = b.argsort()[-K:][::-1]
+    smaller_b = b[indices_tokeep]
+    temp = A[:,indices_tokeep]
+    smaller_A = temp[indices_tokeep,:]
+
+    return smaller_A,smaller_b,indices_tokeep
+
+
+def sanity_checks(unnormalized):
+    if np.all(unnormalized == 0.):
+        print('ALL zeros ... \n ')
+        sys.exit()
+        unnormalized = self.importance_weight[-1] #some const
+        self.simulation_weight.append(unnormalized) # bad coding practice
+        return
+
+    if np.isnan(np.log(unnormalized)).any():
+        print('some log  nan')
+        sys.exit()
 
 def set_plotting():
     # Set plotting
@@ -46,14 +78,6 @@ def mse(x, y):
 
 def sparsity(x):
     return 100. - ((float(np.count_nonzero(x)) / float(x.size)) * 100)
-
-
-def robust_normalize(unnormalized):
-    # print(type(fsum(unnormalized)))
-    print(np.log1p(unnormalized))
-    sys.exit()
-    # res = unnormalized / denominator
-    return res.tolist()
 
 
 def normalize(unnormalized):

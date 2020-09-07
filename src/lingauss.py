@@ -63,9 +63,9 @@ observation_covariance = np.eye(dim) * .2
 initial_state_mean = np.zeros((dim,))
 initial_state_covariance = np.eye(dim)
 
-assert np.all(np.linalg.eigh(transition_covariance)[0] > 0)
-assert np.all(np.linalg.eigh(observation_covariance)[0] > 0)
-assert np.all(np.linalg.eigh(initial_state_covariance)[0] > 0)
+assert is_pos_def(transition_covariance)
+assert is_pos_def(observation_covariance)
+assert is_pos_def(initial_state_covariance)
 
 # sample from model
 kf = KalmanFilter(
@@ -82,7 +82,6 @@ states, observations = kf.sample(
 bpf = LinearGaussianBPF(
     init_particle=random_state.multivariate_normal(mean=initial_state_mean, cov=initial_state_covariance,
                                                    size=n_particle_bpf),
-    random_state=random_state,
     transition_cov=transition_covariance,
     observation_cov=observation_covariance,
     transition_mat=transition_matrix,
@@ -93,7 +92,6 @@ bpf = LinearGaussianBPF(
 apf = LinearGaussianAPF(
     init_particle=random_state.multivariate_normal(mean=initial_state_mean, cov=initial_state_covariance,
                                                    size=n_particle_bpf),
-    random_state=random_state,
     transition_cov=transition_covariance,
     observation_cov=observation_covariance,
     transition_mat=transition_matrix,
@@ -104,7 +102,6 @@ apf = LinearGaussianAPF(
 iapf = LinearGaussianIAPF(
     init_particle=random_state.multivariate_normal(mean=initial_state_mean, cov=initial_state_covariance,
                                                    size=n_particle_iapf),
-    random_state=random_state,
     transition_cov=transition_covariance,
     observation_cov=observation_covariance,
     transition_mat=transition_matrix,
@@ -112,10 +109,9 @@ iapf = LinearGaussianIAPF(
     transition_offset=transition_offset,
     observation_offset=observation_offset)
 
-npf = LinearGaussianNewAPF(
+npf = LinearGaussianOAPF(
     init_particle=random_state.multivariate_normal(mean=initial_state_mean, cov=initial_state_covariance,
                                                    size=n_particle_npf),
-    random_state=random_state,
     transition_cov=transition_covariance,
     observation_cov=observation_covariance,
     transition_mat=transition_matrix,

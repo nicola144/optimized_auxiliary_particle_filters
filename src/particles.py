@@ -8,20 +8,21 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 from tqdm import tqdm
 from utils import *
 
+# seeds
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
 
+reduce=True
 
 # Abstract base class for a particle filter
 class ParticleFilter(ABC):
 
-    def __init__(self, init_particle, random_state):
+    def __init__(self, init_particle):
 
         self.particle = [init_particle]
         self.n_particle, self.ndim_hidden = init_particle.shape
         self.importance_weight = [np.log(np.ones(self.n_particle) / self.n_particle)]
         self.indices = []
-        self.random_state = random_state
 
     @abstractmethod
     def propagate(self, particles):
@@ -49,14 +50,13 @@ class ParticleFilter(ABC):
         return self.particle[-1][index], index
 
     def predict(self, observed):
-        # different with simulation weight
         self.simulation_weight_function(observed)
         resampled, indices = self.multinomial_resample()
         propagated = self.propagate(resampled)
         self.particle.append(propagated)
 
-        # Constant weights after resampling  (Only for bpf???)
-        self.importance_weight.append(np.log(np.ones(self.n_particle) / self.n_particle))
+        # This should not be necessary
+        # self.importance_weight.append(np.log(np.ones(self.n_particle) / self.n_particle))
 
         return indices
 
@@ -136,9 +136,6 @@ class APF(ParticleFilter):
 
     def simulation_weight_function(self, observed):
         prev_centers = self.compute_prev_centers()
-        # prev_centers = self.particle[-1].dot(self.transition_mat) + self.transition_offset
-        # prev_centers = np.matmul(self.particle[-1] - self.transition_offset,
-        #                          self.phi) + self.transition_offset  # for stoch vol. temporary
 
         unnormalized = self.importance_weight[-1] + self.observation_density(obs=observed, mean=prev_centers,
                                                                              offset=self.observation_offset)
@@ -154,9 +151,9 @@ class IAPF(ParticleFilter):
         self.simulation_weight = []
         self.prev_centers_list = []
 
+    # This is really the same for IAPF and OAPF
     def importance_weight_function(self, observed):
         prev_centers = self.prev_centers_list[-1]
-        # these should already be the correct centers
 
         kernels = self.transition_density(at=self.particle[-1], mean=prev_centers)
 
@@ -170,9 +167,6 @@ class IAPF(ParticleFilter):
 
     def simulation_weight_function(self, observed):
         prev_centers = self.compute_prev_centers()
-        # prev_centers = self.particle[-1].dot(self.transition_mat) + self.transition_offset  #  for lingauss
-        # prev_centers = np.matmul(self.particle[-1] - self.transition_offset,
-        #                          self.phi) + self.transition_offset  # for stoch vol. temporary
 
         kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers)
 
@@ -185,7 +179,7 @@ class IAPF(ParticleFilter):
         self.simulation_weight.append(unnormalized)
 
 
-class NewAPF(ParticleFilter):
+class OAPF(ParticleFilter):
 
     def __init__(self, **params):
         super().__init__(**params)
@@ -194,7 +188,6 @@ class NewAPF(ParticleFilter):
 
     def importance_weight_function(self, observed):
         prev_centers = self.prev_centers_list[-1]
-        # these should already be the correct centers
 
         kernels = self.transition_density(at=self.particle[-1], mean=prev_centers)
 
@@ -208,9 +201,6 @@ class NewAPF(ParticleFilter):
 
     def simulation_weight_function(self, observed):
         prev_centers = self.compute_prev_centers()
-        # prev_centers = self.particle[-1].dot(self.transition_mat) + self.transition_offset
-        # prev_centers = np.matmul(self.particle[-1] - self.transition_offset,
-        #                          self.phi) + self.transition_offset  # for stoch vol. temporary
 
         kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers)
 
@@ -225,58 +215,26 @@ class NewAPF(ParticleFilter):
         A = np.exp(logA) + 0.1 * np.eye(logb.shape[0])
         b = np.exp(logb)
 
-        # K = int(self.n_particle / 2)
-        # indices_tokeep = b.argsort()[-K:][::-1]
-        # unnormalized = np.zeros(b.shape)
-        # smaller_b = b[indices_tokeep]
-        # temp = A[:,indices_tokeep]
-        # smaller_A = temp[indices_tokeep,:]
+        if reduce:
+            unnormalized = np.zeros(b.shape)
+            smaller_A,smaller_b, indices_tokeep = reduce_system(self.n_particle,A,b)
+            res = nnls(smaller_A,smaller_b)[0]
+            np.add.at(unnormalized, indices_tokeep, res)
+        else:
+            unnormalized = nnls(A, b)[0]
 
-        # smallest_exp_A = np.min(smaller_A)
-        # smallest_exp_b = np.min(smaller_b)
-        # smallest = np.min([smallest_exp_A,smallest_exp_b])
-        # smallest = np.format_float_scientific(smallest)
-        # min_exp = int(re.findall(r'\d+', smallest)[-1])
-        # smaller_A = smaller_A * (10**min_exp)
-        # smaller_b = smaller_b * (10**min_exp)
+        sanity_checks(unnormalized)
 
-        # res = nnls(smaller_A,smaller_b)[0]
-        # np.add.at(unnormalized, indices_tokeep, res)
-
-        unnormalized = nnls(A, b)[0]
-
-        # if np.all(unnormalized == 0.):
-        #     print('ALL zeros ... \n ')
-        #     sys.exit()
-        #     unnormalized = self.importance_weight[-1] #some const
-        #     self.simulation_weight.append(unnormalized) # bad coding practice 
-        #     return
-
-        # if np.isinf(np.log(unnormalized)).any():
-        #     print('some log inf')
-        #     sys.exit()
-
-        # if np.isnan(np.log(unnormalized)).any():
-        #     print('some log  nan')
-        #     sys.exit()
-
+        # will trigger warning about taking log of 0. it's fine
+        # since subsequent functions can handle -np.inf
         to_append = np.log(unnormalized)
         self.simulation_weight.append(to_append)
 
-        # with warnings.catch_warnings(record=True) as w:
-        #     # Cause all warnings to always be triggered.
-        #     warnings.simplefilter("always")
-        #     # This can trigger 
-        #     to_append = np.log(unnormalized)
-        #     self.simulation_weight.append(to_append)
-        #     if issubclass(w[-1].category, RuntimeWarning):
-        #         print(to_append)
-
 
 class LinearGaussianPF(ParticleFilter):
-    def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
+    def __init__(self, init_particle,  transition_cov, observation_cov, transition_mat, transition_offset,
                  observation_mat, observation_offset):
-        super().__init__(init_particle, random_state)
+        super().__init__(init_particle)
 
         self.transition_cov = transition_cov
         self.observation_cov = observation_cov
@@ -293,7 +251,6 @@ class LinearGaussianPF(ParticleFilter):
         cov = torch.from_numpy(self.transition_cov)
         at = np.expand_dims(at, axis=1)
         at = torch.from_numpy(at)
-
         cov_all = cov[None, ...].repeat_interleave(self.n_particle, 0)
 
         kernels = MultivariateNormal(mean, cov_all).log_prob(at)
@@ -304,7 +261,6 @@ class LinearGaussianPF(ParticleFilter):
         mean_all = np.matmul(np.array(mean), self.observation_mat) + params['offset']
         obs = torch.from_numpy(obs)
         obs_all = obs[None, ...].repeat_interleave(self.n_particle, 0)
-
         mean_all = torch.from_numpy(mean_all)
         obs_cov = torch.from_numpy(self.observation_cov)
 
@@ -314,7 +270,7 @@ class LinearGaussianPF(ParticleFilter):
 
     def propagate(self, resmpled_particles):
         prev_centers = resmpled_particles.dot(self.transition_mat) + self.transition_offset
-        #  need these in APF for importance weight computation
+
         self.prev_centers_list.append(prev_centers)
         res = prev_centers + np.random.multivariate_normal(mean=np.zeros(self.ndim_hidden), cov=self.transition_cov,
                                                            size=self.n_particle)
@@ -322,10 +278,9 @@ class LinearGaussianPF(ParticleFilter):
 
 
 class LinearGaussianBPF(BPF, LinearGaussianPF):
-    def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
+    def __init__(self, init_particle, transition_cov, observation_cov, transition_mat, transition_offset,
                  observation_mat, observation_offset):
         super(LinearGaussianBPF, self).__init__(init_particle=init_particle,
-                                                random_state=random_state,
                                                 transition_cov=transition_cov,
                                                 observation_cov=observation_cov,
                                                 transition_mat=transition_mat,
@@ -335,10 +290,9 @@ class LinearGaussianBPF(BPF, LinearGaussianPF):
 
 
 class LinearGaussianAPF(APF, LinearGaussianPF):
-    def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
+    def __init__(self, init_particle,  transition_cov, observation_cov, transition_mat, transition_offset,
                  observation_mat, observation_offset):
         super(LinearGaussianAPF, self).__init__(init_particle=init_particle,
-                                                random_state=random_state,
                                                 transition_cov=transition_cov,
                                                 observation_cov=observation_cov,
                                                 transition_mat=transition_mat,
@@ -348,10 +302,9 @@ class LinearGaussianAPF(APF, LinearGaussianPF):
 
 
 class LinearGaussianIAPF(IAPF, LinearGaussianPF):
-    def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
+    def __init__(self, init_particle,  transition_cov, observation_cov, transition_mat, transition_offset,
                  observation_mat, observation_offset):
         super(LinearGaussianIAPF, self).__init__(init_particle=init_particle,
-                                                 random_state=random_state,
                                                  transition_cov=transition_cov,
                                                  observation_cov=observation_cov,
                                                  transition_mat=transition_mat,
@@ -360,11 +313,10 @@ class LinearGaussianIAPF(IAPF, LinearGaussianPF):
                                                  observation_offset=observation_offset)
 
 
-class LinearGaussianNewAPF(NewAPF, LinearGaussianPF):
-    def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
+class LinearGaussianOAPF(OAPF, LinearGaussianPF):
+    def __init__(self, init_particle, transition_cov, observation_cov, transition_mat, transition_offset,
                  observation_mat, observation_offset):
-        super(LinearGaussianNewAPF, self).__init__(init_particle=init_particle,
-                                                   random_state=random_state,
+        super(LinearGaussianOAPF, self).__init__(init_particle=init_particle,
                                                    transition_cov=transition_cov,
                                                    observation_cov=observation_cov,
                                                    transition_mat=transition_mat,
@@ -374,12 +326,12 @@ class LinearGaussianNewAPF(NewAPF, LinearGaussianPF):
 
 
 class StochVolPF(ParticleFilter):
-    def __init__(self, init_particle, random_state, transition_cov, transition_offset, phi):
-        super().__init__(init_particle, random_state)
+    def __init__(self, init_particle, transition_cov, transition_offset, phi):
+        super().__init__(init_particle)
         self.transition_cov = transition_cov
         self.transition_offset = transition_offset
         self.phi = phi
-        self.observation_offset = np.zeros(self.ndim_hidden, )
+        self.observation_offset = np.zeros(self.ndim_hidden,)
 
     def compute_prev_centers(self):
         return np.matmul(self.particle[-1] - self.transition_offset, self.phi) + self.transition_offset
@@ -387,10 +339,8 @@ class StochVolPF(ParticleFilter):
     def transition_density(self, at, mean, **params):
         mean = torch.from_numpy(mean)
         cov = torch.from_numpy(self.transition_cov)
-
         at = np.expand_dims(at, axis=1)
         at = torch.from_numpy(at)
-
         cov_all = cov[None, ...].repeat_interleave(self.n_particle, 0)
 
         kernels = MultivariateNormal(mean, cov_all).log_prob(at)
@@ -398,18 +348,13 @@ class StochVolPF(ParticleFilter):
         return kernels.numpy()
 
     def observation_density(self, obs, mean, **params):
+
+        # this is specific to our stochastic vol. model
         actual_mean = np.zeros((self.n_particle, self.ndim_hidden))
-
         obs = torch.from_numpy(obs).double()
-
         obs_all = obs[None, ...].repeat_interleave(self.n_particle, 0)
-
-        # obs_all = obs_all[:,None,:]
-
         actual_mean_all = torch.from_numpy(actual_mean).double()
-
         obs_cov = np.exp(mean)
-
         obs_cov = torch.from_numpy(np.apply_along_axis(np.diag, 1, obs_cov)).double()
 
         liks = MultivariateNormal(actual_mean_all, obs_cov).log_prob(obs_all)
@@ -418,7 +363,7 @@ class StochVolPF(ParticleFilter):
 
     def propagate(self, resampled_particles):
         prev_centers = np.matmul(resampled_particles - self.transition_offset, self.phi) + self.transition_offset
-        #  need these in APF for importance weight computation
+
         self.prev_centers_list.append(prev_centers)
         res = prev_centers + np.random.multivariate_normal(mean=np.zeros(self.ndim_hidden), cov=self.transition_cov,
                                                            size=self.n_particle)
@@ -426,36 +371,32 @@ class StochVolPF(ParticleFilter):
 
 
 class StochVolBPF(BPF, StochVolPF):
-    def __init__(self, init_particle, random_state, transition_cov, transition_offset, phi):
+    def __init__(self, init_particle, transition_cov, transition_offset, phi):
         super(StochVolBPF, self).__init__(init_particle=init_particle,
-                                          random_state=random_state,
                                           transition_cov=transition_cov,
                                           transition_offset=transition_offset,
                                           phi=phi)
 
 
 class StochVolAPF(APF, StochVolPF):
-    def __init__(self, init_particle, random_state, transition_cov, transition_offset, phi):
+    def __init__(self, init_particle, transition_cov, transition_offset, phi):
         super(StochVolAPF, self).__init__(init_particle=init_particle,
-                                          random_state=random_state,
                                           transition_cov=transition_cov,
                                           transition_offset=transition_offset,
                                           phi=phi)
 
 
 class StochVolIAPF(IAPF, StochVolPF):
-    def __init__(self, init_particle, random_state, transition_cov, transition_offset, phi):
+    def __init__(self, init_particle, transition_cov, transition_offset, phi):
         super(StochVolIAPF, self).__init__(init_particle=init_particle,
-                                           random_state=random_state,
                                            transition_cov=transition_cov,
                                            transition_offset=transition_offset,
                                            phi=phi)
 
 
-class StochVolNewAPF(NewAPF, StochVolPF):
-    def __init__(self, init_particle, random_state, transition_cov, transition_offset, phi):
-        super(StochVolNewAPF, self).__init__(init_particle=init_particle,
-                                             random_state=random_state,
+class StochVolOAPF(OAPF, StochVolPF):
+    def __init__(self, init_particle, transition_cov, transition_offset, phi):
+        super(StochVolOAPF, self).__init__(init_particle=init_particle,
                                              transition_cov=transition_cov,
                                              transition_offset=transition_offset,
                                              phi=phi)
