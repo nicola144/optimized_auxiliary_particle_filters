@@ -15,6 +15,8 @@ np.random.seed(random_seed)
 reduce=True
 
 # Abstract base class for a particle filter
+
+# NOTE : Originally inspired by implementation in : https://github.com/ctgk/PRML/blob/master/prml/markov/particle.py
 class ParticleFilter(ABC):
 
     def __init__(self, init_particle):
@@ -54,9 +56,6 @@ class ParticleFilter(ABC):
         resampled, indices = self.multinomial_resample()
         propagated = self.propagate(resampled)
         self.particle.append(propagated)
-
-        # This should not be necessary
-        # self.importance_weight.append(np.log(np.ones(self.n_particle) / self.n_particle))
 
         return indices
 
@@ -186,6 +185,7 @@ class OAPF(ParticleFilter):
         self.simulation_weight = []
         self.prev_centers_list = []
 
+    # This is really the same for IAPF and OAPF
     def importance_weight_function(self, observed):
         prev_centers = self.prev_centers_list[-1]
 
