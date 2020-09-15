@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.pyplot import cm
 from scipy.integrate import simps
-from scipy.optimize import linprog
+from scipy.optimize import linprog,nnls
 from scipy.stats import norm as norm_scipy
 from utils import *
 
@@ -16,13 +16,13 @@ fig, ax = plt.subplots(2, 1)
 fig.tight_layout(pad=0.3)
 
 
-# m = 4 # n particles
-# w_prev = np.array([3., 1., 2., 3.]) 
-# w_prev = w_prev / np.sum(w_prev)
-# # x_prev = np.array([2.5, 3.25, 3.75, 3.]) # this with sigma lik = 1.5 means use BPF !! 
+m = 4 # n particles # FOR PAPER
+w_prev = np.array([3., 1., 2., 3.])
+w_prev = w_prev / np.sum(w_prev)
+x_prev = np.array([2.5, 3.25, 3.75, 3.])
 # x_prev = np.array([1.5, 3., 4.5, 5.5]) # INTERESTING . Try it with both high lik and low lik. High lik & kernels no overlap : USE APF
 
-# lik_center = 4. # original 2.
+lik_center = 4. # original 2.
 #----------------------------------------------------------------------------------
 
 # m = 4 # n particles
@@ -32,17 +32,17 @@ fig.tight_layout(pad=0.3)
 # lik_center = 5. # original 2.
 #----------------------------------------------------------------------------------
 
-m = 4 # n particles
-w_prev = np.array([3., 1.5, 2., 3]) 
-w_prev = w_prev / np.sum(w_prev)
-x_prev = np.array([3.25, 4.57, 5.75, 6.5]) # USATO nel final
-lik_center = 5. # original 2.
+# m = 4 # n particles
+# w_prev = np.array([3., 1.5, 2., 3])
+# w_prev = w_prev / np.sum(w_prev)
+# x_prev = np.array([3.25, 4.57, 5.75, 6.5]) # USATO nel final
+# lik_center = 5. # original 2.
 #----------------------------------------------------------------------------------
 
 
-# weights already normalized  A GOOD ONE
+# weights already normalized  Could include
 # m = 4 # n particles
-# w_prev = np.array([3., 1., 2., 1.]) 
+# w_prev = np.array([3., 1., 2., 1.])
 # w_prev = w_prev / np.sum(w_prev)
 # x_prev = np.array([3.5, 4.5, 5., 5.5]) # using 3. and 5. , with lik. in the middle, gives same solution for all
 # lik_center = 4. # original 2.
@@ -63,7 +63,7 @@ lik_center = 5. # original 2.
 
 #----------------------------------------------------------------------------------
 
-# m=3 # maybe 
+# m=3 # maybe
 # w_prev = np.array([0.15,0.6,0.25]) # original [0.03, 0.16, 0.16, 0.65]
 # x_prev = np.array([5.25,5.5,6.25]) # original [3., 4., 5., 6.]
 # lik_center = 6 # original 2.
@@ -93,8 +93,8 @@ lik_center = 5. # original 2.
 #----------------------------------------------------------------------------------
 
 
-sigma_kernels = .2 # original 0.5
-sigma_lik = .7 # original 0.8 
+sigma_kernels = .5 # original 0.5
+sigma_lik = .8 # original 0.8
 
 # Neat example with sigma_lik=0.4, lik. center = 3.
 # WTH example with lik_center = 4. , x_prev = np.array([3., 5., 5., 5.])
@@ -164,7 +164,6 @@ F2 = np.vstack(( [np.array([ pred_lik[l] *  norm_scipy.pdf(x_prev[j], loc=x_prev
 F2 = pred_lik.reshape(-1,1)  * norm_scipy.pdf(x_prev, loc=x_prev.reshape(-1,1), scale=sigma_kernels)
 
 
-
 b = np.dot(F2,w_prev) 
 A = F1
 
@@ -172,7 +171,7 @@ A = F1
 A = np.hstack((A, -np.eye(b.shape[0])))
 c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
 results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True,'disp':True,'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
-result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n " 
+result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n "
 print(result)
 result_vec = results['x']
 psi = result_vec[:b.shape[0]]
@@ -245,7 +244,7 @@ indices = np.array([ np.where(x == x_prev[i]) for i in range(m)]).flatten().toli
 
 ax[0].legend(['Kernel 1', 'Kernel 2', 'Kernel 3', 'Kernel 4', 'Likelihood'])
 
-ax[1].legend(['BPF Proposal', 'APF Proposal', 'IAPF Proposal', 'New Proposal', 'True'])
+ax[1].legend(['BPF Proposal', 'APF Proposal', 'IAPF Proposal', 'OAPF Proposal', 'True'])
 
 
 print("Chi-square for BPF: ", chi_square(true_post,bpf_proposal,x))
@@ -254,5 +253,5 @@ print("Chi-square for IAPF: ", chi_square(true_post,iapf_proposal,x))
 print("Chi-square for NPF: ", chi_square(true_post,new_proposal,x))
 
 
-# plt.savefig("imgs/evalpoints.pdf", bbox_inches='tight')
+# plt.savefig("imgs/mog1.pdf", bbox_inches='tight')
 plt.show()

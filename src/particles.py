@@ -13,7 +13,7 @@ torch.manual_seed(random_seed)
 np.random.seed(random_seed)
 
 # Decides whether to perform reduction of the optimization problem given by OAPF
-reduce=True
+reduce=False
 
 #     ParticleFilter
 #       /       \
@@ -45,11 +45,11 @@ class ParticleFilter(ABC):
         pass
 
     @abstractmethod
-    def importance_weight_function(self, observed):
+    def importance_weight_function(self, obs):
         pass
 
     @abstractmethod
-    def simulation_weight_function(self, observed):
+    def simulation_weight_function(self, obs):
         pass
     # Of course, one could use more advanced resampling schemes
     def multinomial_resample(self):
@@ -58,16 +58,16 @@ class ParticleFilter(ABC):
         return self.particle[-1][index], index
 
     # Bring particles forward
-    def simulate(self, observed):
-        self.simulation_weight_function(observed)
+    def simulate(self, obs):
+        self.simulation_weight_function(obs)
         resampled, indices = self.multinomial_resample()
         propagated = self.propagate(resampled)
         self.particle.append(propagated)
         return indices
 
     # Weight particles
-    def weight(self, observed):
-        self.importance_weight_function(observed)
+    def weight(self, obs):
+        self.importance_weight_function(obs)
         return self.particle[-1], self.importance_weight[-1]
 
     def filter(self, observed_sequence):
@@ -210,6 +210,8 @@ class OAPF(ParticleFilter):
             np.add.at(unnormalized, indices_tokeep, res)
         else:
             unnormalized = nnls(A, b)[0]
+
+        # unnormalized = randomized_nnls(A, b, self.n_particle)
 
         sanity_checks(unnormalized)
 
