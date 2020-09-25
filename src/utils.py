@@ -7,6 +7,8 @@ from matplotlib import rcParams
 from scipy.integrate import simps
 from scipy.special import logsumexp
 from scipy.optimize import minimize
+import random
+from tqdm import tqdm
 
 random_seed = 5
 
@@ -61,7 +63,7 @@ def scale_reduced_system(smaller_A, smaller_b):
 
 
 def reduce_system(n_particle, A, b):
-	K = int(n_particle / 2)
+	K = int(n_particle / 50)
 	indices_tokeep = b.argsort()[-K:][::-1]
 	smaller_b = b[indices_tokeep]
 	temp = A[:, indices_tokeep]
@@ -77,6 +79,7 @@ def sanity_checks(unnormalized):
 		sys.exit()
 
 	if np.isnan(np.log(unnormalized)).any():
+		print(unnormalized)
 		print('some log  nan')
 		sys.exit()
 
@@ -90,10 +93,10 @@ def set_plotting():
 		'xtick.labelsize': 14,
 		'ytick.labelsize': 14,
 		'text.usetex': False,
-		'figure.figsize': [15, 8],
+		'figure.figsize': [18, 8],
 		'axes.labelpad': 10,
 		'lines.linewidth': 10,
-		'legend.loc': 'upper left'
+		'legend.loc': 'lower left'
 	}
 	rcParams['agg.path.chunksize'] = 10000
 	rcParams.update(params)

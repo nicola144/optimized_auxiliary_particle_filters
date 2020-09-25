@@ -3,7 +3,17 @@
 from particles import *
 from utils import *
 
+# seeds = np.array(random.sample(range(1, 1000), 100))
+#
+# np.savetxt('seeds.out', seeds, delimiter=',')   # X is an array
+
+# seeds = np.loadtxt('seeds.out')
+
+
+
+
 random_state = np.random.RandomState(random_seed)
+
 
 set_plotting()
 
@@ -25,7 +35,7 @@ n_particle_npf = 100
 
 constant_mean = np.zeros(dim,)
 initial_cov = np.eye(dim)
-transition_cov = 0.1 * np.eye(dim)
+transition_cov = 1 * np.eye(dim)
 
 # phi = np.diag( random_state.randint(low=0,high=5,size=dim ) )
 phi = np.diag(np.ones(dim,))
@@ -67,25 +77,21 @@ observations = np.array(obs)
 states = np.array(states)
 
 bpf = StochVolBPF(init_particle=prior_sample(size=n_particle_bpf),
-						random_state=random_state,
 						transition_cov=transition_cov,
 						transition_offset=constant_mean,
 						phi=phi )
 
 apf = StochVolAPF(init_particle=prior_sample(size=n_particle_apf),
-						random_state=random_state,
 						transition_cov=transition_cov,
 						transition_offset=constant_mean,
 						phi=phi )
 
 iapf = StochVolIAPF(init_particle=prior_sample(size=n_particle_iapf),
-						random_state=random_state,
 						transition_cov=transition_cov,
 						transition_offset=constant_mean,
 						phi=phi )
 
 npf = StochVolOAPF(init_particle=prior_sample(size=n_particle_npf),
-						random_state=random_state,
 						transition_cov=transition_cov,
 						transition_offset=constant_mean,
 						phi=phi )
