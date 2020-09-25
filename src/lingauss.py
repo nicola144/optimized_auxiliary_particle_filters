@@ -107,7 +107,7 @@ all_mean_deviations_iapf = []
 all_mean_deviations_oapf = []
 
 
-for seed in tqdm(seeds):
+for seed in seeds:
 
     random_state = np.random.RandomState(seed)
 
@@ -167,44 +167,52 @@ for seed in tqdm(seeds):
         transition_offset=transition_offset,
         observation_offset=observation_offset)
 
-    mean_bpf, covs_bpf,  ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf = bpf.filter(observations)
+    # mean_bpf, covs_bpf,  ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf = bpf.filter(observations)
     mean_apf, covs_apf,  ess_apf, n_unique_apf, w_vars_apf, liks_apf = apf.filter(observations)
     mean_iapf, covs_iapf,  ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf = iapf.filter(observations)
     mean_oapf, covs_npf,  ess_npf, n_unique_npf, w_vars_npf, liks_oapf = oapf.filter(observations)
 
-    # estimate state with filtering and smoothing
+    # true results given by KF
     mean_kf, covs_kf = kf.filter(observations)
     true_logliks, true_loglik = kf.loglikelihood(observations)
 
-    lambbda = np.array(apf.simulation_weight[5])
-
-    grid = np.linspace(-10., 10., 10000)
+    # lambbda = np.array(apf.simulation_weight[5])
+    # grid = np.linspace(-10., 10., 10000)
     # plt.plot(x,, '--', c='b', label='APF proposal')
     # plt.plot(x,, '--', c='r',label='APF proposal')
     # plt.show()
 
-    sys.exit()
 
-    mean_deviations_bpf = np.average(mse(mean_bpf, mean_kf))
+    # mean_deviations_bpf = np.average(mse(mean_bpf, mean_kf))
     mean_deviations_apf = np.average(mse(mean_apf, mean_kf))
     mean_deviations_iapf = np.average(mse(mean_iapf, mean_kf))
     mean_deviations_oapf = np.average(mse(mean_oapf, mean_kf))
+
+    print('-----------------------\n')
+    print("MSE mean")
+    # print(mean_deviations_bpf)
+    print(mean_deviations_apf)
+    print(mean_deviations_iapf)
+    print(mean_deviations_oapf)
+    print('-----------------------\n')
+    print('-----------------------\n')
+
 
     all_mean_deviations_bpf.append(mean_deviations_bpf)
     all_mean_deviations_apf.append(mean_deviations_apf)
     all_mean_deviations_iapf.append(mean_deviations_iapf)
     all_mean_deviations_oapf.append(mean_deviations_oapf)
 
-    plt.plot(liks_bpf, 'b', label='bpf')
-    plt.plot(liks_apf, 'y', label='apf')
-    plt.plot(liks_iapf, 'c', label='iapf')
-    plt.plot(liks_oapf, 'm', label='oapf')
-    plt.plot(true_logliks, 'r', label='Kalman F')
-    plt.title('tracking log Z')
-    plt.xlabel('Timstep')
-    plt.ylabel('log Z estimate')
-    plt.legend()
-    plt.show()
+    # plt.plot(liks_bpf, 'b', label='bpf')
+    # plt.plot(liks_apf, 'y', label='apf')
+    # plt.plot(liks_iapf, 'c', label='iapf')
+    # plt.plot(liks_oapf, 'm', label='oapf')
+    # plt.plot(true_logliks, 'r', label='Kalman F')
+    # plt.title('tracking log Z')
+    # plt.xlabel('Timstep')
+    # plt.ylabel('log Z estimate')
+    # plt.legend()
+    # plt.show()
     sys.exit()
 
 
