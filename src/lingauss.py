@@ -4,43 +4,9 @@ from particles import *
 from pykalman import KalmanFilter
 from utils import *
 
-dim = 1
+dim = 2
 
 n_particle = 100
-
-
-# res = np.loadtxt('results/results_lingauss_100_reduced_particles.out',  delimiter=',')
-#
-# n_monte_carlo = 100000
-#
-# averages = [[] for algorithm in range(res.shape[0])]
-#
-# for algorithm in range(res.shape[0]):
-#     averages[algorithm].append(np.mean(res[algorithm]))
-#
-#     for i in range(n_monte_carlo):
-#         averages[algorithm].append(np.mean(np.random.choice(a=res[algorithm],replace=True)))
-#
-# averages = np.asarray(averages)
-#
-# d = plt.boxplot([averages[0],averages[1],averages[2],averages[3]], labels=['bpf','apf','iapf','oapf'], whis=1.5)
-#
-#
-# # plt.boxplot([res[0],res[1], res[2],res[3]], labels=['bpf','apf', 'iapf','oapf'], bootstrap=5000)
-#
-# # d = plt.boxplot([res[2],res[3]], labels=['iapf','oapf'], bootstrap=100, notch=True)
-#
-# print(d['medians'][0].get_ydata(orig=True)[0])
-# print(d['medians'][1].get_ydata(orig=True)[0])
-#
-# plt.axhline(y=d['medians'][0].get_ydata(orig=True)[0], color='r', linestyle='-')
-# plt.axhline(y=d['medians'][1].get_ydata(orig=True)[0], color='b', linestyle='-')
-#
-#
-# plt.show()
-# # plt.savefig('results/boxplot-'+ str(n_particle)+ '-reduced-res.pdf', bbox_inches='tight')
-#
-# sys.exit()
 
 
 set_plotting()
@@ -54,8 +20,7 @@ set_plotting()
 
 # specify parameters
 
-
-n_timesteps = 150
+n_timesteps = 100
 
 # transition_matrix = random_state.randn(2, 2).T.dot(random_state.randn(2, 2)) + 5.
 # transition_offset = [0., 0.]
@@ -76,10 +41,10 @@ seeds = np.loadtxt('seeds.out').astype('int64')
 transition_matrix = np.eye(dim)
 observation_matrix = np.eye(dim)
 transition_offset = np.zeros((dim,))
-observation_offset = np.zeros((dim,))
+observation_offset = np.array([5,-5])
 
-transition_covariance = np.eye(dim) * 5
-observation_covariance = np.eye(dim) * .2
+transition_covariance = np.eye(dim) * 1.
+observation_covariance = np.eye(dim) * 1.
 
 # R = random_state.randint(low=0,high=3,size=(dim,dim)) + random_state.randn(dim, dim)
 # transition_covariance = R.T.dot(R) + 5. * np.eye(dim)
@@ -107,7 +72,7 @@ all_mean_deviations_iapf = []
 all_mean_deviations_oapf = []
 
 
-for seed in seeds:
+for seed in tqdm(seeds):
 
     random_state = np.random.RandomState(seed)
 
@@ -167,10 +132,11 @@ for seed in seeds:
         transition_offset=transition_offset,
         observation_offset=observation_offset)
 
-    # mean_bpf, covs_bpf,  ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf = bpf.filter(observations)
+    mean_bpf, covs_bpf,  ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf = bpf.filter(observations)
     mean_apf, covs_apf,  ess_apf, n_unique_apf, w_vars_apf, liks_apf = apf.filter(observations)
     mean_iapf, covs_iapf,  ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf = iapf.filter(observations)
     mean_oapf, covs_npf,  ess_npf, n_unique_npf, w_vars_npf, liks_oapf = oapf.filter(observations)
+
 
     # true results given by KF
     mean_kf, covs_kf = kf.filter(observations)
@@ -183,19 +149,19 @@ for seed in seeds:
     # plt.show()
 
 
-    # mean_deviations_bpf = np.average(mse(mean_bpf, mean_kf))
+    mean_deviations_bpf = np.average(mse(mean_bpf, mean_kf))
     mean_deviations_apf = np.average(mse(mean_apf, mean_kf))
     mean_deviations_iapf = np.average(mse(mean_iapf, mean_kf))
     mean_deviations_oapf = np.average(mse(mean_oapf, mean_kf))
 
-    print('-----------------------\n')
-    print("MSE mean")
+    # print('-----------------------\n')
+    # print("MSE mean")
     # print(mean_deviations_bpf)
-    print(mean_deviations_apf)
-    print(mean_deviations_iapf)
-    print(mean_deviations_oapf)
-    print('-----------------------\n')
-    print('-----------------------\n')
+    # print(mean_deviations_apf)
+    # print(mean_deviations_iapf)
+    # print(mean_deviations_oapf)
+    # print('-----------------------\n')
+    # print('-----------------------\n')
 
 
     all_mean_deviations_bpf.append(mean_deviations_bpf)
@@ -205,15 +171,15 @@ for seed in seeds:
 
     # plt.plot(liks_bpf, 'b', label='bpf')
     # plt.plot(liks_apf, 'y', label='apf')
-    # plt.plot(liks_iapf, 'c', label='iapf')
-    # plt.plot(liks_oapf, 'm', label='oapf')
+    # # plt.plot(liks_iapf, 'c', label='iapf')
+    # # plt.plot(liks_oapf, 'm', label='oapf')
     # plt.plot(true_logliks, 'r', label='Kalman F')
     # plt.title('tracking log Z')
     # plt.xlabel('Timstep')
     # plt.ylabel('log Z estimate')
     # plt.legend()
     # plt.show()
-    sys.exit()
+    # sys.exit()
 
 
 
@@ -226,9 +192,9 @@ res = np.vstack([
 ])
 
 # REDUCED
-np.savetxt('results/results_lingauss_'+str(n_particle)+'_reduced_particles.out', res, delimiter=',')   # X is an array
+np.savetxt('results/results_lingauss_'+str(n_particle)+'_reduced_particles-dim'+str(dim)+'-equal-offset.out', res, delimiter=',')
 # NONREDUCED
-# np.savetxt('results/results_lingauss_'+str(n_particle)+'_particles.out', res, delimiter=',')   # X is an array
+# np.savetxt('results/results_lingauss_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res, delimiter=',')
 
 
 

@@ -11,7 +11,9 @@ from utils import *
 torch.manual_seed(0)
 
 # Decides whether to perform reduction of the optimization problem given by OAPF
-reduce=False
+reduce=True
+
+# Class structure
 
 #     ParticleFilter
 #       /       \
@@ -24,6 +26,14 @@ reduce=False
 class ParticleFilter(ABC):
 
     def __init__(self, init_particle, random_state):
+        """
+        Initializer for generic particle filter. 
+        
+        :param init_particle: initialized particles drawn from a prior distribution 
+        :type init_particle: A list or np.array of shape N x D , N being n. of particles, D the dimension of latent state
+        :param random_state: A np.random object to hold the random seed 
+        :type random_state: 
+        """
 
         self.particle = [init_particle]
         self.n_particle, self.ndim_hidden = init_particle.shape
@@ -51,28 +61,63 @@ class ParticleFilter(ABC):
     @abstractmethod
     def simulation_weight_function(self, obs):
         pass
-    # Of course, one could use more advanced resampling schemes
+
+
     def multinomial_resample(self):
-        print('resampling')
+        """
+
+        :param self:
+        :type self:
+        :return:
+        :rtype:
+        """
+        # print('resampling')
         index = self.random_state.choice(self.n_particle, self.n_particle, p=normalize_log(self.simulation_weight[-1]))
         self.indices.append(index)
         return self.particle[-1][index], index
 
     # Bring particles forward
     def simulate(self, obs):
+        """
+
+        :param self:
+        :type self:
+        :param obs:
+        :type obs:
+        :return:
+        :rtype:
+        """
         self.simulation_weight_function(obs)
         resampled, indices = self.multinomial_resample()
         propagated = self.propagate(resampled)
-        print('appending new particles')
+        # print('appending new particles')
         self.particle.append(propagated)
         return indices
 
     # Weight particles
     def weight(self, obs):
+        """
+
+        :param self:
+        :type self:
+        :param obs:
+        :type obs:
+        :return:
+        :rtype:
+        """
         self.importance_weight_function(obs)
         return self.particle[-1], self.importance_weight[-1]
 
     def filter(self, observed_sequence):
+        """
+
+        :param self:
+        :type self:
+        :param observed_sequence:
+        :type observed_sequence:
+        :return:
+        :rtype:
+        """
         mean = []
         cov = []
         logz_estimates = []
@@ -86,9 +131,11 @@ class ParticleFilter(ABC):
             p, w = self.weight(obs)
             normalized_w = normalize_log(w)
             # ESS estimate uses normalized weights
-            ess_est = 1. / normalized_w.T.dot(normalized_w)
+            # ess_est = 1. / normalized_w.T.dot(normalized_w)
+            ess_est = get_ess(log_normalize_log(w))
             # Estimate of log normalizing constant
-            logz = self.compute_logz(w, self.simulation_weight[-1])
+            logz = 1
+            # logz = self.compute_logz(w, self.simulation_weight[-1])
             # Unique particles
             n_unique = np.unique(indices).shape[0]
             # Sample variance
@@ -114,50 +161,61 @@ class BPF(ParticleFilter):
     def __init__(self, **params):
         super().__init__(**params)
         self.simulation_weight = []
-        self.prev_centers_list = []
+        # not needed , a design hack
+        # ----------------------------------------------------
+        self.prev_centers_list_resampled = []
+        self.prev_centers_list_non_resampled = []
+        # ----------------------------------------------------
 
     def importance_weight_function(self, observed):
         unnormalized = self.observation_density(obs=observed, mean=self.particle[-1], offset=self.observation_offset)
-        self.importance_weight[-1] = unnormalized
+        # self.importance_weight[-1] = unnormalized
+        self.importance_weight.append(unnormalized)
 
     def simulation_weight_function(self, observed):
         # not needed , a design hack
         # ----------------------------------------------------
         prev_centers = self.compute_prev_centers(self.particle[-1])
-        self.prev_centers_list.append(prev_centers)
+        self.prev_centers_list_non_resampled.append(prev_centers)
         # ----------------------------------------------------
 
         self.simulation_weight.append(self.importance_weight[-1])
 
     def compute_logz(self,w,l):
         #not using l for bpf
-        return logsumexp(w) + np.log(1. / self.n_particle)
+        return logsumexp(w) - np.log(self.n_particle)
 
 class APF(ParticleFilter):
     def __init__(self, **params):
         super().__init__(**params)
         self.simulation_weight = []
-        self.prev_centers_list = []
-        # self.prev_centers_list_resampled = []
+        self.prev_centers_list_resampled = []
+        self.prev_centers_list_non_resampled = []
         self.pred_liks = []
 
+        self.pred_liks_resampled = []
+
     def importance_weight_function(self, observed):
-        print('weighting')
-        print('using centers for IS ')
-        # ONLY FOR APF ????
-        prev_centers = self.prev_centers_list[-1]
+        # print('weighting')
+        # print('using centers for IS ')
+        # APF needs resampled centers !
+        prev_centers = self.prev_centers_list_resampled[-1]
+        pred_lik_resampled = self.observation_density(obs=observed, mean=prev_centers,
+                                            offset=self.observation_offset)
+        self.pred_liks_resampled.append(pred_lik_resampled)
+
         unnormalized = self.observation_density(obs=observed, mean=self.particle[-1],
                                                 offset=self.observation_offset) - self.observation_density(obs=observed,
                                                                                                            mean=prev_centers,
                                                                                                            offset=self.observation_offset)
-        self.importance_weight[-1] = unnormalized
-
+        # self.importance_weight[-1] = unnormalized
+        self.importance_weight.append(unnormalized)
 
     def simulation_weight_function(self, observed):
-        print('simulation')
-        print('computing centers')
+        # print('simulation')
+        # print('computing centers')
         prev_centers = self.compute_prev_centers(self.particle[-1])
-        self.prev_centers_list.append(prev_centers)
+        self.prev_centers_list_non_resampled.append(prev_centers)
 
         pred_lik = self.observation_density(obs=observed, mean=prev_centers,
                                             offset=self.observation_offset)
@@ -166,29 +224,33 @@ class APF(ParticleFilter):
         self.simulation_weight.append(unnormalized)
 
     def compute_logz(self,w,l):
-        return logsumexp(w) + logsumexp(l) + 2 * np.log(1. / self.n_particle)
-
+        # this is correct for apf
+        return logsumexp(w) + logsumexp( log_normalize_log(self.importance_weight[-2]) + self.pred_liks[-1]) - np.log(self.n_particle)
 
 class IAPF(ParticleFilter):
 
     def __init__(self, **params):
         super().__init__(**params)
         self.simulation_weight = []
-        self.prev_centers_list = []
+        self.prev_centers_list_resampled = []
+        self.prev_centers_list_non_resampled = []
 
     # This is really the same for IAPF and OAPF
     def importance_weight_function(self, observed):
-        prev_centers = self.prev_centers_list[-1]
+        # here, need to use centers of non-resampled particles
+        prev_centers = self.prev_centers_list_non_resampled[-1]
         kernels = self.transition_density(at=self.particle[-1], mean=prev_centers)
         predictive = logmatmulexp(kernels, np.array(self.importance_weight[-1]))
         proposal = logmatmulexp(kernels, np.array(self.simulation_weight[-1]))
         lik = self.observation_density(obs=observed, mean=self.particle[-1], offset=self.observation_offset)
         unnormalized = lik + predictive - proposal
-        self.importance_weight[-1] = unnormalized
+        # self.importance_weight[-1] = unnormalized
+        self.importance_weight.append(unnormalized)
 
     def simulation_weight_function(self, observed):
+        # this computes centers for non resampled particles
         prev_centers = self.compute_prev_centers(self.particle[-1])
-        self.prev_centers_list.append(prev_centers)
+        self.prev_centers_list_non_resampled.append(prev_centers)
         kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers)
         pred_lik = self.observation_density(obs=observed, mean=prev_centers, offset=self.observation_offset)
         sum_numerator = logmatmulexp(kernels_at_centers, np.array(self.importance_weight[-1]))
@@ -197,20 +259,20 @@ class IAPF(ParticleFilter):
         self.simulation_weight.append(unnormalized)
 
     def compute_logz(self,w,l):
-        ll = np.log(normalize_log(l))
-        return logsumexp(w) + logsumexp(l) + np.log(1. / self.n_particle)
-
+        return logsumexp(w) - np.log(self.n_particle)
+        # return logsumexp(w) + logsumexp( log_normalize_log(self.importance_weight[-2]) + self.pred_liks[-1]) - np.log(self.n_particle)
 
 class OAPF(ParticleFilter):
 
     def __init__(self, **params):
         super().__init__(**params)
         self.simulation_weight = []
-        self.prev_centers_list = []
+        self.prev_centers_list_resampled = []
+        self.prev_centers_list_non_resampled = []
 
     # This is really the same for IAPF and OAPF
     def importance_weight_function(self, observed):
-        prev_centers = self.prev_centers_list[-1]
+        prev_centers = self.prev_centers_list_non_resampled[-1]
 
         kernels = self.transition_density(at=self.particle[-1], mean=prev_centers)
 
@@ -220,11 +282,12 @@ class OAPF(ParticleFilter):
         lik = self.observation_density(obs=observed, mean=self.particle[-1], offset=self.observation_offset)
 
         unnormalized = lik + predictive - proposal
-        self.importance_weight[-1] = unnormalized
+        # self.importance_weight[-1] = unnormalized
+        self.importance_weight.append(unnormalized)
 
     def simulation_weight_function(self, observed):
         prev_centers = self.compute_prev_centers(self.particle[-1])
-        self.prev_centers_list.append(prev_centers)
+        self.prev_centers_list_non_resampled.append(prev_centers)
 
         kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers)
 
@@ -251,12 +314,13 @@ class OAPF(ParticleFilter):
             np.add.at(unnormalized, indices_tokeep, res)
         else:
             unnormalized = nnls(A, b)[0]
+            # Or can use simplex/ interior point
+
             # A = np.hstack((A, -np.eye(b.shape[0])))
             # c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
             # results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='interior-point',options={'presolve':True, 'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
             # result_vec = results['x']
             # unnormalized = result_vec[:b.shape[0]]
-            # # unnormalized = unnormalized.clip(min=0.)
 
 
         # unnormalized = randomized_nnls(A, b, self.n_particle)
@@ -269,9 +333,7 @@ class OAPF(ParticleFilter):
         self.simulation_weight.append(to_append)
 
     def compute_logz(self,w,l):
-        ll = np.log(normalize_log(l))
-        return logsumexp(w) + logsumexp(l) + np.log(1. / self.n_particle)
-
+        return logsumexp(w) - np.log(self.n_particle)
 
 
 class LinearGaussianPF(ParticleFilter):
@@ -312,15 +374,15 @@ class LinearGaussianPF(ParticleFilter):
         return liks.numpy()
 
     def propagate(self, resampled_particles):
-        print('propagation')
-        print('using centers to propagate')
+        # print('propagation')
+        # print('using centers to propagate')
+        # this computes centers for resampled particles
         prev_centers = self.compute_prev_centers(resampled_particles)
-        self.prev_centers_list.append(prev_centers)
+        self.prev_centers_list_resampled.append(prev_centers)
 
         res = prev_centers + self.random_state.multivariate_normal(mean=np.zeros(self.ndim_hidden), cov=self.transition_cov,
                                                            size=self.n_particle)
         return res
-
 
 class LinearGaussianBPF(BPF, LinearGaussianPF):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
@@ -334,7 +396,6 @@ class LinearGaussianBPF(BPF, LinearGaussianPF):
                                                 observation_mat=observation_mat,
                                                 observation_offset=observation_offset)
 
-
 class LinearGaussianAPF(APF, LinearGaussianPF):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
                  observation_mat, observation_offset):
@@ -347,7 +408,6 @@ class LinearGaussianAPF(APF, LinearGaussianPF):
                                                 observation_mat=observation_mat,
                                                 observation_offset=observation_offset)
 
-
 class LinearGaussianIAPF(IAPF, LinearGaussianPF):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
                  observation_mat, observation_offset):
@@ -359,7 +419,6 @@ class LinearGaussianIAPF(IAPF, LinearGaussianPF):
                                                  transition_offset=transition_offset,
                                                  observation_mat=observation_mat,
                                                  observation_offset=observation_offset)
-
 
 class LinearGaussianOAPF(OAPF, LinearGaussianPF):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
@@ -411,9 +470,12 @@ class StochVolPF(ParticleFilter):
         return liks.numpy()
 
     def propagate(self, resampled_particles):
-        prev_centers = self.prev_centers_list[-1]
+        # prev_centers = self.prev_centers_list[-1]
         # prev_centers = np.matmul(resampled_particles - self.transition_offset, self.phi) + self.transition_offset
         # self.prev_centers_list.append(prev_centers)
+        prev_centers = self.compute_prev_centers(resampled_particles)
+        self.prev_centers_list_resampled.append(prev_centers)
+
         res = prev_centers + self.random_state.multivariate_normal(mean=np.zeros(self.ndim_hidden), cov=self.transition_cov,
                                                            size=self.n_particle)
         return res
@@ -427,7 +489,6 @@ class StochVolBPF(BPF, StochVolPF):
                                           transition_offset=transition_offset,
                                           phi=phi)
 
-
 class StochVolAPF(APF, StochVolPF):
     def __init__(self, init_particle, random_state, transition_cov, transition_offset, phi):
         super(StochVolAPF, self).__init__(init_particle=init_particle,
@@ -436,7 +497,6 @@ class StochVolAPF(APF, StochVolPF):
                                           transition_offset=transition_offset,
                                           phi=phi)
 
-
 class StochVolIAPF(IAPF, StochVolPF):
     def __init__(self, init_particle, random_state, transition_cov, transition_offset, phi):
         super(StochVolIAPF, self).__init__(init_particle=init_particle,
@@ -444,7 +504,6 @@ class StochVolIAPF(IAPF, StochVolPF):
                                            transition_cov=transition_cov,
                                            transition_offset=transition_offset,
                                            phi=phi)
-
 
 class StochVolOAPF(OAPF, StochVolPF):
     def __init__(self, init_particle, random_state, transition_cov, transition_offset, phi):

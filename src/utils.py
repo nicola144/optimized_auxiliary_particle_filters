@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 import random
 from tqdm import tqdm
 
-random_seed = 5
+# random_seed = 5
 
 
 # Implements the IHS update. "right" means the term on the right of the difference
@@ -34,7 +34,7 @@ def randomized_nnls(A, b, n_particle):
 	lambdas = np.zeros(b.shape)
 
 	# Result lambdas should NOT be ALL zeros.
-	# cons = ({'type': 'ineq', 'fun': lambda x: x.dot(x) - 1})
+	# cons = ({'type': 'ineq', 'fun': lambda x: x.dot(x) - 0.01})
 
 	for i in range(5): # 5 iterations
 		init_lambdas = np.random.multivariate_normal(mean=np.zeros(b.shape), cov=np.eye(b.shape[0]))
@@ -127,9 +127,15 @@ def check_symmetric(a, rtol=1e-05, atol=1e-08):
 	return np.allclose(a, a.T, rtol=rtol, atol=atol)
 
 
-# also for logs
 def normalize_log(l):
 	return np.exp(l - logsumexp(l)).flatten()
+
+
+def log_normalize_log(unnormalized):
+	return unnormalized - logsumexp(unnormalized)
+
+def get_ess(logw_norm):
+	return np.exp(-logsumexp(2*logw_norm))
 
 
 def logmatmulexp(log_A, log_B):
