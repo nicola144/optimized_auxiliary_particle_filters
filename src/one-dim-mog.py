@@ -16,36 +16,44 @@ fig, ax = plt.subplots(2, 1)
 fig.tight_layout(pad=0.3)
 
 
-m = 4 # n particles # FOR PAPER
-w_prev = np.array([3., 1., 2., 3.])
-w_prev = w_prev / np.sum(w_prev)
-x_prev = np.array([2.5, 3.25, 3.75, 3.])
-# x_prev = np.array([1.5, 3., 4.5, 5.5]) # INTERESTING . Try it with both high lik and low lik. High lik & kernels no overlap : USE APF
-
-lik_center = 4. # original 2.
+# m = 4 # n particles # FOR PAPER
+# w_prev = np.array([3., 1., 2., 3.])
+# w_prev = w_prev / np.sum(w_prev)
+# x_prev = np.array([2.5, 3.25, 3.75, 3.])
+# # x_prev = np.array([1.5, 3., 4.5, 5.5])
+#
+# lik_center = 4. # original 2.
 #----------------------------------------------------------------------------------
 
 # m = 4 # n particles
-# w_prev = np.array([3., 1., 2., 1.]) 
+# w_prev = np.array([1.5, 1.5, 1., 1.])
 # w_prev = w_prev / np.sum(w_prev)
-# x_prev = np.array([3.5, 3.5, 3.5, 3.5]) # also exactly the same . I think this is just bc of model mismatch
+# x_prev = np.array([2., 2.5 , 3.,3.5])
+# lik_center = 3. # original 2.
+#----------------------------------------------------------------------------------
+
+# m = 4 # n particles Suplemenetary
+# w_prev = np.array([1., 1., 1., 1.])
+# w_prev = w_prev / np.sum(w_prev)
+# x_prev = np.array([3., 4., 5., 6.]) # USATO nel final
 # lik_center = 5. # original 2.
 #----------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------
 
-# m = 4 # n particles
-# w_prev = np.array([3., 1.5, 2., 3])
+m = 4 # n particles Suplemenetary
+# w_prev = np.array([1., 1, 10., 10.])
 # w_prev = w_prev / np.sum(w_prev)
-# x_prev = np.array([3.25, 4.57, 5.75, 6.5]) # USATO nel final
+# x_prev = np.array([0., 2., 3., 7.]) # USATO nel final
 # lik_center = 5. # original 2.
 #----------------------------------------------------------------------------------
 
 
 # weights already normalized  Could include
-# m = 4 # n particles
-# w_prev = np.array([3., 1., 2., 1.])
-# w_prev = w_prev / np.sum(w_prev)
-# x_prev = np.array([3.5, 4.5, 5., 5.5]) # using 3. and 5. , with lik. in the middle, gives same solution for all
-# lik_center = 4. # original 2.
+m = 4 # n particles
+w_prev = np.array([3.5, 1., 5.5, 1.])
+w_prev = w_prev / np.sum(w_prev)
+x_prev = np.array([2., 2.5, 5., 5.5])
+lik_center = 3.5 # original 2.
 #----------------------------------------------------------------------------------
 
 # weights already normalized  PERCHE ? 
@@ -93,8 +101,8 @@ lik_center = 4. # original 2.
 #----------------------------------------------------------------------------------
 
 
-sigma_kernels = .5 # original 0.5
-sigma_lik = .8 # original 0.8
+sigma_kernels = 0.5 # original 0.5
+sigma_lik = 1.2 # original 0.8
 
 # Neat example with sigma_lik=0.4, lik. center = 3.
 # WTH example with lik_center = 4. , x_prev = np.array([3., 5., 5., 5.])
@@ -160,7 +168,7 @@ if not check_symmetric(F1):
 	print('not symm')
 	sys.exit()
 
-F2 = np.vstack(( [np.array([ pred_lik[l] *  norm_scipy.pdf(x_prev[j], loc=x_prev[l], scale=sigma_kernels) for l in range(m) ])] for j in range(m) ))
+# F2 = np.vstack(( [np.array([ pred_lik[l] *  norm_scipy.pdf(x_prev[j], loc=x_prev[l], scale=sigma_kernels) for l in range(m) ])] for j in range(m) ))
 F2 = pred_lik.reshape(-1,1)  * norm_scipy.pdf(x_prev, loc=x_prev.reshape(-1,1), scale=sigma_kernels)
 
 
@@ -182,7 +190,7 @@ print("Total error ", error)
 # psi = nnls(A,b)[0]
 
 
-psi = psi / np.sum(psi)
+# psi = psi / np.sum(psi)
 psi = normalize(psi)
 
 
@@ -195,7 +203,6 @@ assert np.isclose(np.sum(apf_lambda),1.)
 assert np.isclose(np.sum(psi),1.)
 
 assert np.isclose(simps(true_post, dx=x[1]-x[0]),1.)
-print(simps(bpf_proposal, dx=x[1]-x[0]))
 assert np.isclose(simps(bpf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 assert np.isclose(simps(apf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 assert np.isclose(simps(iapf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
@@ -253,5 +260,5 @@ print("Chi-square for IAPF: ", chi_square(true_post,iapf_proposal,x))
 print("Chi-square for NPF: ", chi_square(true_post,new_proposal,x))
 
 
-# plt.savefig("imgs/mog1.pdf", bbox_inches='tight')
-plt.show()
+plt.savefig("imgs/mog2.pdf", bbox_inches='tight')
+# plt.show()

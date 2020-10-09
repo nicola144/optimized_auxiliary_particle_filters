@@ -63,7 +63,7 @@ def scale_reduced_system(smaller_A, smaller_b):
 
 
 def reduce_system(n_particle, A, b):
-	K = int(n_particle / 50)
+	K = int(n_particle / 10)
 	indices_tokeep = b.argsort()[-K:][::-1]
 	smaller_b = b[indices_tokeep]
 	temp = A[:, indices_tokeep]
@@ -89,14 +89,14 @@ def set_plotting():
 	params = {
 		'axes.labelsize': 18,
 		'font.size': 14,
-		'legend.fontsize': 14,
+		'legend.fontsize': 18,
 		'xtick.labelsize': 14,
 		'ytick.labelsize': 14,
 		'text.usetex': False,
-		'figure.figsize': [18, 8],
+		'figure.figsize': [20, 12],
 		'axes.labelpad': 10,
 		'lines.linewidth': 10,
-		'legend.loc': 'lower left'
+		'legend.loc': 'upper left'
 	}
 	rcParams['agg.path.chunksize'] = 10000
 	rcParams.update(params)
@@ -111,8 +111,12 @@ def chi_square(target, proposal, x):
 	return simps((target - proposal) ** 2 / (proposal), dx=x[1] - x[0])
 
 
+# def mse(x, y):
+# 	return np.average((x - y) ** 2, axis=0)
+
+# Normalized ?
 def mse(x, y):
-	return np.average((x - y) ** 2, axis=0)
+	return np.average((x - y) ** 2, axis=0) / np.average(np.sum(y**2,axis=-1))
 
 
 def sparsity(x):
@@ -129,7 +133,6 @@ def check_symmetric(a, rtol=1e-05, atol=1e-08):
 
 def normalize_log(l):
 	return np.exp(l - logsumexp(l)).flatten()
-
 
 def log_normalize_log(unnormalized):
 	return unnormalized - logsumexp(unnormalized)

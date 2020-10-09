@@ -38,13 +38,18 @@ seeds = np.loadtxt('seeds.out').astype('int64')
 # transition_offset = [-0.1, 0.1]
 # observation_matrix = np.eye(2) + random_state.randn(2, 2) * 0.1
 # observation_offset = [1.0, -1.0]
-transition_matrix = np.eye(dim)
-observation_matrix = np.eye(dim)
-transition_offset = np.zeros((dim,))
-observation_offset = np.array([5,-5])
+transition_matrix = np.eye(dim) * 1/2
+observation_matrix = np.eye(dim) * 1/2
+# transition_offset = np.array([-2,2,-2,2,-2,2,-2,2,-2,2])
+# observation_offset = np.array([-2,2,-2,2,-2,2,-2,2,-2,2])
+transition_offset = np.array([-2,2])
+observation_offset = np.array([-2,2])
 
-transition_covariance = np.eye(dim) * 1.
-observation_covariance = np.eye(dim) * 1.
+
+trans_var = 5.
+obs_var = 2.5
+transition_covariance = np.eye(dim) * trans_var
+observation_covariance = np.eye(dim) * obs_var
 
 # R = random_state.randint(low=0,high=3,size=(dim,dim)) + random_state.randn(dim, dim)
 # transition_covariance = R.T.dot(R) + 5. * np.eye(dim)
@@ -142,12 +147,6 @@ for seed in tqdm(seeds):
     mean_kf, covs_kf = kf.filter(observations)
     true_logliks, true_loglik = kf.loglikelihood(observations)
 
-    # lambbda = np.array(apf.simulation_weight[5])
-    # grid = np.linspace(-10., 10., 10000)
-    # plt.plot(x,, '--', c='b', label='APF proposal')
-    # plt.plot(x,, '--', c='r',label='APF proposal')
-    # plt.show()
-
 
     mean_deviations_bpf = np.average(mse(mean_bpf, mean_kf))
     mean_deviations_apf = np.average(mse(mean_apf, mean_kf))
@@ -169,17 +168,17 @@ for seed in tqdm(seeds):
     all_mean_deviations_iapf.append(mean_deviations_iapf)
     all_mean_deviations_oapf.append(mean_deviations_oapf)
 
-    # plt.plot(liks_bpf, 'b', label='bpf')
-    # plt.plot(liks_apf, 'y', label='apf')
-    # # plt.plot(liks_iapf, 'c', label='iapf')
-    # # plt.plot(liks_oapf, 'm', label='oapf')
-    # plt.plot(true_logliks, 'r', label='Kalman F')
-    # plt.title('tracking log Z')
-    # plt.xlabel('Timstep')
-    # plt.ylabel('log Z estimate')
-    # plt.legend()
-    # plt.show()
-    # sys.exit()
+    plt.plot(liks_bpf, 'b', label='bpf')
+    plt.plot(liks_apf, 'y', label='apf')
+    plt.plot(liks_iapf, 'c', label='iapf')
+    plt.plot(liks_oapf, 'm', label='oapf')
+    plt.plot(true_logliks, 'r', label='Kalman F')
+    plt.title('tracking log Z')
+    plt.xlabel('Timstep')
+    plt.ylabel('log Z estimate')
+    plt.legend()
+    plt.show()
+    sys.exit()
 
 
 
@@ -192,7 +191,7 @@ res = np.vstack([
 ])
 
 # REDUCED
-np.savetxt('results/results_lingauss_'+str(n_particle)+'_reduced_particles-dim'+str(dim)+'-equal-offset.out', res, delimiter=',')
+np.savetxt('results/lingauss/results_lingauss_'+str(n_particle)+'_reduced_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res, delimiter=',')
 # NONREDUCED
 # np.savetxt('results/results_lingauss_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res, delimiter=',')
 
