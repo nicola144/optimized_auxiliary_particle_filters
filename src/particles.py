@@ -53,7 +53,7 @@ class ParticleFilter(ABC):
         pass
 
     @abstractmethod
-    def observation_density(self, obs, mean, **params):
+    def observation_density(self, obs, **params):
         pass
 
     @abstractmethod
@@ -123,6 +123,7 @@ class ParticleFilter(ABC):
         mean = []
         cov = []
         logz_estimates = []
+        joint_logz_estimates = []
         ess = []
         n_unique_sequence = []
         w_vars = []
@@ -133,14 +134,14 @@ class ParticleFilter(ABC):
             p, w = self.weight(obs)
             normalized_w = normalize_log(w)
             # ESS estimate uses normalized weights
-            # ess_est = 1. / normalized_w.T.dot(normalized_w)
             ess_est = get_ess(log_normalize_log(w))
             # Estimate of log normalizing constant
-            # logz = 1
             logz = self.compute_logz(w, self.simulation_weight[-1])
+            # Estimate of joint logz
+            joint_logz = logz + np.sum(logz_estimates)
             # Unique particles
             n_unique = np.unique(indices).shape[0]
-            # Sample variance
+            # Sample variance. Bessel's correction
             w_var = np.var(w,ddof=1)
 
             if np.isnan(normalized_w).any():
@@ -153,10 +154,10 @@ class ParticleFilter(ABC):
             n_unique_sequence.append(n_unique)
             w_vars.append(w_var)
             logz_estimates.append(logz)
-
+            joint_logz_estimates.append(joint_logz)
 
         return np.asarray(mean), np.asarray(cov),  np.asarray(ess), np.asarray(
-            n_unique_sequence), np.asarray(w_vars), np.asarray(logz_estimates)
+            n_unique_sequence), np.asarray(w_vars), np.asarray(logz_estimates), np.asarray(joint_logz_estimates)
 
 class BPF(ParticleFilter):
     def __init__(self, **params):
@@ -209,7 +210,6 @@ class APF(ParticleFilter):
                                                 offset=self.observation_offset) - self.observation_density(obs=observed,
                                                                                                            mean=prev_centers,
                                                                                                            offset=self.observation_offset)
-        # self.importance_weight[-1] = unnormalized
         self.importance_weight.append(unnormalized)
 
     def simulation_weight_function(self, observed):
@@ -227,6 +227,7 @@ class APF(ParticleFilter):
     def compute_logz(self,w,l):
         # this is correct for apf
         return logsumexp(w) + logsumexp( log_normalize_log(self.importance_weight[-2]) + self.pred_liks[-1]) - np.log(self.n_particle)
+        # return logsumexp(w) - np.log(self.n_particle)
 
 class IAPF(ParticleFilter):
 
@@ -278,7 +279,7 @@ class OAPF(ParticleFilter):
         kernels = self.transition_density(at=self.particle[-1], mean=prev_centers)
 
         predictive = logmatmulexp(kernels, np.array(log_normalize_log(self.importance_weight[-1])))
-        proposal = logmatmulexp(kernels, np.array(self.simulation_weight[-1]))
+        proposal = logmatmulexp(kernels, np.array(log_normalize_log(self.simulation_weight[-1])))
 
         lik = self.observation_density(obs=observed, mean=self.particle[-1], offset=self.observation_offset)
 
@@ -335,7 +336,8 @@ class OAPF(ParticleFilter):
         self.simulation_weight.append(to_append)
 
     def compute_logz(self,w,l):
-        return logsumexp(w) + logsumexp( l ) - np.log(self.n_particle)
+        # return logsumexp(w) + logsumexp( l ) - np.log(self.n_particle)
+        return logsumexp(w) - np.log(self.n_particle)
 
 class LinearGaussianPF(ParticleFilter):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
@@ -363,13 +365,13 @@ class LinearGaussianPF(ParticleFilter):
 
         return kernels.numpy()
 
-    def observation_density(self, obs, mean, **params):
+    def observation_density(self, obs, **params):
+        mean = params['mean']
         mean_all = np.matmul(np.array(mean), self.observation_mat) + params['offset']
         obs = torch.from_numpy(obs).double()
         obs_all = obs[None, ...].repeat_interleave(self.n_particle, 0)
         mean_all = torch.from_numpy(mean_all).double()
         obs_cov = torch.from_numpy(self.observation_cov).double()
-
         liks = MultivariateNormal(mean_all, obs_cov).log_prob(obs_all)
 
         return liks.numpy()
@@ -456,8 +458,8 @@ class StochVolPF(ParticleFilter):
 
         return kernels.numpy()
 
-    def observation_density(self, obs, mean, **params):
-
+    def observation_density(self, obs, **params):
+        mean = params['mean']
         # this is specific to our stochastic vol. model
         actual_mean = np.zeros((self.n_particle, self.ndim_hidden))
         obs = torch.from_numpy(obs).double()
@@ -513,20 +515,32 @@ class StochVolOAPF(OAPF, StochVolPF):
 
 
 class LorenzPF(ParticleFilter):
-    def __init__(self, init_particle, random_state, s, r, b, delta):
+    def __init__(self, init_particle, random_state, s, r, b, delta, transition_cov, observation_var):
         super().__init__(init_particle, random_state)
         self.s = s
         self.r = r
         self.b = b
         self.delta = delta
+        self.transition_cov = transition_cov
+        self.observation_var = observation_var
+        self.observation_offset = None
 
     def compute_prev_centers(self, particle):
-        first_coordinate = particle[:,0] - self.delta * self.s * (particle[:,0] - particle[:,1])
-        second_coordinate = particle[:,1] + self.delta * (self.r * particle[:,0] - particle[:,1] - particle[:,0] * particle[:,2])
-        third_coordinate = particle[:,2] + self.delta * (particle[:,0] * particle[:,1] - self.b * particle[:,2])
-        # stack dimensions together
-        pass
+        x = particle[:, 0]
+        y = particle[:, 1]
+        z = particle[:, 2]
 
+        x_dot = self.s * ( y - x )
+        y_dot = self.r * x - y - x * z
+        z_dot = x * y - self.b * z
+
+        xs = x + (x_dot * self.delta)
+        ys = y + (y_dot * self.delta)
+        zs = z + (z_dot * self.delta)
+
+        # stack dimensions together
+        res = np.vstack([xs, ys, zs]).T
+        return res
 
     def transition_density(self, at, mean, **params):
         mean = torch.from_numpy(mean).double()
@@ -539,17 +553,19 @@ class LorenzPF(ParticleFilter):
 
         return kernels.numpy()
 
-
-    def observation_density(self, obs, mean, **params):
-        # this is specific to our stochastic vol. model
-        actual_mean = np.zeros((self.n_particle, self.ndim_hidden))
+    def observation_density(self, obs, **params):
+        mean = params['mean']
+        # The Lorenz system is observed through its first coordinate only
+        mean = mean[:,0].reshape(-1,1)
+        # mean_all = np.matmul(np.array(mean), self.observation_mat) + params['offset']
+        obs = np.atleast_1d(obs)
         obs = torch.from_numpy(obs).double()
         obs_all = obs[None, ...].repeat_interleave(self.n_particle, 0)
-        actual_mean_all = torch.from_numpy(actual_mean).double()
-        obs_cov = np.exp(mean)
-        obs_cov = torch.from_numpy(np.apply_along_axis(np.diag, 1, obs_cov)).double()
-
-        liks = MultivariateNormal(actual_mean_all, obs_cov).log_prob(obs_all)
+        mean_all = torch.from_numpy(mean).double()
+        obs_cov = torch.from_numpy(self.observation_var).double()
+        # print(obs_cov.shape)
+        # sys.exit()
+        liks = MultivariateNormal(mean_all, obs_cov).log_prob(obs_all)
 
         return liks.numpy()
 
@@ -562,4 +578,46 @@ class LorenzPF(ParticleFilter):
                                                                    size=self.n_particle)
         return res
 
+class LorenzBPF(BPF, LorenzPF):
+    def __init__(self, init_particle, random_state, s, r, b, delta, transition_cov, observation_var):
+        super(LorenzBPF, self).__init__(init_particle=init_particle,
+                                        random_state=random_state,
+                                        s=s,
+                                        r=r,
+                                        b=b,
+                                        delta=delta,
+                                        transition_cov=transition_cov,
+                                        observation_var=observation_var)
 
+class LorenzAPF(APF, LorenzPF):
+    def __init__(self, init_particle, random_state, s, r, b, delta, transition_cov, observation_var):
+        super(LorenzAPF, self).__init__(init_particle=init_particle,
+                                        random_state=random_state,
+                                        s=s,
+                                        r=r,
+                                        b=b,
+                                        delta=delta,
+                                        transition_cov=transition_cov,
+                                        observation_var=observation_var)
+
+class LorenzIAPF(IAPF, LorenzPF):
+    def __init__(self, init_particle, random_state, s, r, b, delta, transition_cov, observation_var):
+        super(LorenzIAPF, self).__init__(init_particle=init_particle,
+                                        random_state=random_state,
+                                        s=s,
+                                        r=r,
+                                        b=b,
+                                        delta=delta,
+                                        transition_cov=transition_cov,
+                                        observation_var=observation_var)
+
+class LorenzOAPF(OAPF, LorenzPF):
+    def __init__(self, init_particle, random_state, s, r, b, delta, transition_cov, observation_var):
+        super(LorenzOAPF, self).__init__(init_particle=init_particle,
+                                        random_state=random_state,
+                                        s=s,
+                                        r=r,
+                                        b=b,
+                                        delta=delta,
+                                        transition_cov=transition_cov,
+                                        observation_var=observation_var)

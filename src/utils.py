@@ -63,7 +63,8 @@ def scale_reduced_system(smaller_A, smaller_b):
 
 
 def reduce_system(n_particle, A, b):
-	K = int(n_particle / 10)
+	# K = int(n_particle / 50)
+	K = 5
 	indices_tokeep = b.argsort()[-K:][::-1]
 	smaller_b = b[indices_tokeep]
 	temp = A[:, indices_tokeep]

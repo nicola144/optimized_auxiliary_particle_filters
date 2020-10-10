@@ -4,9 +4,9 @@ from particles import *
 from pykalman import KalmanFilter
 from utils import *
 
-dim = 2
+dim = 10
 
-n_particle = 100
+n_particle = 1000
 
 
 set_plotting()
@@ -40,10 +40,10 @@ seeds = np.loadtxt('seeds.out').astype('int64')
 # observation_offset = [1.0, -1.0]
 transition_matrix = np.eye(dim) * 1/2
 observation_matrix = np.eye(dim) * 1/2
-# transition_offset = np.array([-2,2,-2,2,-2,2,-2,2,-2,2])
-# observation_offset = np.array([-2,2,-2,2,-2,2,-2,2,-2,2])
-transition_offset = np.array([-2,2])
-observation_offset = np.array([-2,2])
+transition_offset = np.array([-2,2,-2,2,-2,2,-2,2,-2,2])
+observation_offset = np.array([-2,2,-2,2,-2,2,-2,2,-2,2])
+# transition_offset = np.array([-2,2])
+# observation_offset = np.array([-2,2])
 
 
 trans_var = 5.
@@ -75,6 +75,17 @@ all_mean_deviations_bpf = []
 all_mean_deviations_apf = []
 all_mean_deviations_iapf = []
 all_mean_deviations_oapf = []
+
+all_logliks_deviations_bpf = []
+all_logliks_deviations_apf = []
+all_logliks_deviations_iapf = []
+all_logliks_deviations_oapf = []
+
+all_joint_logliks_deviations_bpf = []
+all_joint_logliks_deviations_apf = []
+all_joint_logliks_deviations_iapf = []
+all_joint_logliks_deviations_oapf = []
+
 
 
 for seed in tqdm(seeds):
@@ -137,61 +148,88 @@ for seed in tqdm(seeds):
         transition_offset=transition_offset,
         observation_offset=observation_offset)
 
-    mean_bpf, covs_bpf,  ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf = bpf.filter(observations)
-    mean_apf, covs_apf,  ess_apf, n_unique_apf, w_vars_apf, liks_apf = apf.filter(observations)
-    mean_iapf, covs_iapf,  ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf = iapf.filter(observations)
-    mean_oapf, covs_npf,  ess_npf, n_unique_npf, w_vars_npf, liks_oapf = oapf.filter(observations)
+    mean_bpf, covs_bpf,  ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf, joint_liks_bpf = bpf.filter(observations)
+    mean_apf, covs_apf,  ess_apf, n_unique_apf, w_vars_apf, liks_apf, joint_liks_apf = apf.filter(observations)
+    mean_iapf, covs_iapf,  ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf, joint_liks_iapf = iapf.filter(observations)
+    mean_oapf, covs_npf,  ess_npf, n_unique_npf, w_vars_npf, liks_oapf, joint_liks_oapf = oapf.filter(observations)
 
 
     # true results given by KF
     mean_kf, covs_kf = kf.filter(observations)
     true_logliks, true_loglik = kf.loglikelihood(observations)
+    joint_true_logliks = np.cumsum(true_logliks)
 
-
+    #MEANS
     mean_deviations_bpf = np.average(mse(mean_bpf, mean_kf))
     mean_deviations_apf = np.average(mse(mean_apf, mean_kf))
     mean_deviations_iapf = np.average(mse(mean_iapf, mean_kf))
     mean_deviations_oapf = np.average(mse(mean_oapf, mean_kf))
-
-    # print('-----------------------\n')
-    # print("MSE mean")
-    # print(mean_deviations_bpf)
-    # print(mean_deviations_apf)
-    # print(mean_deviations_iapf)
-    # print(mean_deviations_oapf)
-    # print('-----------------------\n')
-    # print('-----------------------\n')
-
-
     all_mean_deviations_bpf.append(mean_deviations_bpf)
     all_mean_deviations_apf.append(mean_deviations_apf)
     all_mean_deviations_iapf.append(mean_deviations_iapf)
     all_mean_deviations_oapf.append(mean_deviations_oapf)
 
-    plt.plot(liks_bpf, 'b', label='bpf')
-    plt.plot(liks_apf, 'y', label='apf')
-    plt.plot(liks_iapf, 'c', label='iapf')
-    plt.plot(liks_oapf, 'm', label='oapf')
-    plt.plot(true_logliks, 'r', label='Kalman F')
-    plt.title('tracking log Z')
-    plt.xlabel('Timstep')
-    plt.ylabel('log Z estimate')
-    plt.legend()
-    plt.show()
-    sys.exit()
+    #partial constants
+    logliks_deviations_bpf = np.average(mse(liks_bpf, true_logliks))
+    logliks_deviations_apf = np.average(mse(liks_apf, true_logliks))
+    logliks_deviations_iapf = np.average(mse(liks_iapf, true_logliks))
+    logliks_deviations_oapf = np.average(mse(liks_oapf, true_logliks))
+    all_logliks_deviations_bpf.append(logliks_deviations_bpf)
+    all_logliks_deviations_apf.append(logliks_deviations_apf)
+    all_logliks_deviations_iapf.append(logliks_deviations_iapf)
+    all_logliks_deviations_oapf.append(logliks_deviations_oapf)
+
+    #joint constants
+    joint_logliks_deviations_bpf = np.average(mse(joint_liks_bpf, joint_true_logliks))
+    joint_logliks_deviations_apf = np.average(mse(joint_liks_apf, joint_true_logliks))
+    joint_logliks_deviations_iapf = np.average(mse(joint_liks_iapf, joint_true_logliks))
+    joint_logliks_deviations_oapf = np.average(mse(joint_liks_oapf, joint_true_logliks))
+    all_joint_logliks_deviations_bpf.append(joint_logliks_deviations_bpf)
+    all_joint_logliks_deviations_apf.append(joint_logliks_deviations_apf)
+    all_joint_logliks_deviations_iapf.append(joint_logliks_deviations_iapf)
+    all_joint_logliks_deviations_oapf.append(joint_logliks_deviations_oapf)
 
 
+    # plt.plot(liks_bpf, 'b', label='bpf')
+    # plt.plot(liks_apf, 'y', label='apf')
+    # plt.plot(liks_iapf, 'c', label='iapf')
+    # plt.plot(liks_oapf, 'm', label='oapf')
+    # plt.plot(true_logliks, 'r', label='Kalman F')
+    # plt.title('tracking log Z')
+    # plt.xlabel('Timstep')
+    # plt.ylabel('log Z estimate')
+    # plt.legend()
+    # plt.show()
+    # sys.exit()
 
-
-res = np.vstack([
+res_means = np.vstack([
     all_mean_deviations_bpf,
     all_mean_deviations_apf,
     all_mean_deviations_iapf,
     all_mean_deviations_oapf
 ])
 
+res_logliks = np.vstack([
+    all_logliks_deviations_bpf,
+    all_logliks_deviations_apf,
+    all_logliks_deviations_iapf,
+    all_logliks_deviations_oapf
+])
+
+res_joint_logliks = np.vstack([
+    all_joint_logliks_deviations_bpf,
+    all_joint_logliks_deviations_apf,
+    all_joint_logliks_deviations_iapf,
+    all_joint_logliks_deviations_oapf
+])
+
+
+
 # REDUCED
-np.savetxt('results/lingauss/results_lingauss_'+str(n_particle)+'_reduced_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res, delimiter=',')
+np.savetxt('results/lingauss/means/results_lingauss_'+str(n_particle)+'_reduced5_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res_means, delimiter=',')
+np.savetxt('results/lingauss/logliks/results_lingauss_'+str(n_particle)+'_reduced5_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res_logliks, delimiter=',')
+np.savetxt('results/lingauss/joint_logliks/results_lingauss_'+str(n_particle)+'_reduced5_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res_joint_logliks, delimiter=',')
+
 # NONREDUCED
 # np.savetxt('results/results_lingauss_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res, delimiter=',')
 

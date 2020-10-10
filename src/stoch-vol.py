@@ -3,6 +3,12 @@
 from particles import *
 from utils import *
 
+constant_mean = np.zeros(dim, )
+initial_cov = np.eye(dim)
+transition_cov = 1 * np.eye(dim)
+phi = np.diag(np.ones(dim, ))
+
+
 def prior_sample(size=1):
 	res = np.random.multivariate_normal(mean=constant_mean,cov=initial_cov,size=size)
 	return res.squeeze()
@@ -19,7 +25,6 @@ def observation_sample(curr_state):
 
 
 seeds = np.loadtxt('seeds.out').astype('int64')
-# random_state = np.random.RandomState(random_seed)
 
 
 # set_plotting()
@@ -55,15 +60,7 @@ for seed in tqdm(seeds):
 
 	random_state = np.random.RandomState(seed)
 
-
 	# Data generation
-	constant_mean = np.zeros(dim,)
-	initial_cov = np.eye(dim)
-	transition_cov = 1 * np.eye(dim)
-
-	# phi = np.diag( random_state.randint(low=0,high=5,size=dim ) )
-	phi = np.diag(np.ones(dim,))
-
 
 	obs = []
 	states = []

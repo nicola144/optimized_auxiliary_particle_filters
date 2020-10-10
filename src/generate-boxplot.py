@@ -6,7 +6,7 @@ from utils import *
 
 set_plotting()
 
-res = np.loadtxt('results/lingauss/results_lingauss_100_reduced_particles-dim2-trvar5.0-obsvar2.5.out',  delimiter=',')
+res = np.loadtxt('results/lingauss/joint_logliks/results_lingauss_1000_reduced5_particles-dim10-trvar5.0-obsvar2.5.out',  delimiter=',')
 
 n_monte_carlo = 100000
 
@@ -38,6 +38,11 @@ print(d['medians'][3].get_ydata(orig=True)[0])
 
 
 plt.show()
+
+
+
+
+
 
 # plt.savefig('results/PAPER-boxplot-100-reduced-res-trvar5.0-obsvar2.5.pdf', bbox_inches='tight')
 # 0.0031599361015733915
