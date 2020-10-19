@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import torch
-from scipy.optimize import nnls,linprog
+from scipy.optimize import nnls,linprog,least_squares
 from torch.distributions.multivariate_normal import MultivariateNormal
 from utils import *
 
@@ -11,18 +11,16 @@ from utils import *
 torch.manual_seed(0)
 
 # Decides whether to perform reduction of the optimization problem given by OAPF
-reduce=True
+reduce=False
 
 # Class structure
 
 #     ParticleFilter
 #       /       \
-# BPF/APF etc   Lin/Gauss/StochVol etc
+# BPF/APF etc   Lin-Gauss/StochVol or others
 #       \        /
-#      Concrete PF
+#      Concrete PF !
 #
-
-
 
 # NOTE : Originally inspired by implementation in : https://github.com/ctgk/PRML/blob/master/prml/markov/particle.py
 class ParticleFilter(ABC):
@@ -130,8 +128,11 @@ class ParticleFilter(ABC):
 
         for obs in observed_sequence:
             # Can be used for unique particle count
+            # start = time.time()
             indices = self.simulate(obs)
             p, w = self.weight(obs)
+            # end = time.time()
+            # print(str(end - start))
             normalized_w = normalize_log(w)
             # ESS estimate uses normalized weights
             ess_est = get_ess(log_normalize_log(w))
@@ -140,7 +141,8 @@ class ParticleFilter(ABC):
             # Estimate of joint logz
             joint_logz = logz + np.sum(logz_estimates)
             # Unique particles
-            n_unique = np.unique(indices).shape[0]
+            n_unique = 0
+            # n_unique = np.unique(indices).shape[0]
             # Sample variance. Bessel's correction
             w_var = np.var(w,ddof=1)
 
@@ -291,6 +293,8 @@ class OAPF(ParticleFilter):
         prev_centers = self.compute_prev_centers(self.particle[-1])
         self.prev_centers_list_non_resampled.append(prev_centers)
 
+        # eval_points = compute_cluster_centers(prev_centers)
+
         kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers)
 
         pred_lik = self.observation_density(obs=observed, mean=prev_centers, offset=self.observation_offset)
@@ -302,8 +306,13 @@ class OAPF(ParticleFilter):
         logb = logmatmulexp(scaled_kernels, np.array(log_normalize_log(self.importance_weight[-1])))
 
         # Conditioning ?
-        A = np.exp(logA) + np.eye(logb.shape[0]) * 1e-9
+        A = np.exp(logA)
         b = np.exp(logb)
+
+        A = np.array(A,dtype=np.longdouble)
+        b = np.array(b,dtype=np.longdouble)
+
+        A = A + 1e-10 * np.eye(b.shape[0])
 
         # if not check_symmetric(A):
         #     print('not symm')
@@ -317,27 +326,29 @@ class OAPF(ParticleFilter):
             np.add.at(unnormalized, indices_tokeep, res)
         else:
             unnormalized = nnls(A, b)[0]
+            # unnormalized = least_squares(fun_rosenbrock, x0_rosenbrock).x
+
+            # print(sparsity(unnormalized))
             # Or can use simplex/ interior point
 
             # A = np.hstack((A, -np.eye(b.shape[0])))
             # c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
-            # results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='interior-point',options={'presolve':True, 'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
+            # results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True, 'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
             # result_vec = results['x']
             # unnormalized = result_vec[:b.shape[0]]
 
-
         # unnormalized = randomized_nnls(A, b, self.n_particle)
-
         sanity_checks(unnormalized)
 
         # will trigger warning about taking log of 0. it's fine
         # since subsequent functions can handle -np.inf
         to_append = np.log(unnormalized)
-        self.simulation_weight.append(to_append)
+        self.simulation_weight.append(unnormalized)
 
     def compute_logz(self,w,l):
         # return logsumexp(w) + logsumexp( l ) - np.log(self.n_particle)
         return logsumexp(w) - np.log(self.n_particle)
+
 
 class LinearGaussianPF(ParticleFilter):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
@@ -386,6 +397,7 @@ class LinearGaussianPF(ParticleFilter):
         res = prev_centers + self.random_state.multivariate_normal(mean=np.zeros(self.ndim_hidden), cov=self.transition_cov,
                                                            size=self.n_particle)
         return res
+
 
 class LinearGaussianBPF(BPF, LinearGaussianPF):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
@@ -557,14 +569,11 @@ class LorenzPF(ParticleFilter):
         mean = params['mean']
         # The Lorenz system is observed through its first coordinate only
         mean = mean[:,0].reshape(-1,1)
-        # mean_all = np.matmul(np.array(mean), self.observation_mat) + params['offset']
         obs = np.atleast_1d(obs)
         obs = torch.from_numpy(obs).double()
         obs_all = obs[None, ...].repeat_interleave(self.n_particle, 0)
         mean_all = torch.from_numpy(mean).double()
         obs_cov = torch.from_numpy(self.observation_var).double()
-        # print(obs_cov.shape)
-        # sys.exit()
         liks = MultivariateNormal(mean_all, obs_cov).log_prob(obs_all)
 
         return liks.numpy()
@@ -577,6 +586,7 @@ class LorenzPF(ParticleFilter):
         res = prev_centers + self.random_state.multivariate_normal(mean=np.zeros(self.ndim_hidden), cov=self.transition_cov,
                                                                    size=self.n_particle)
         return res
+
 
 class LorenzBPF(BPF, LorenzPF):
     def __init__(self, init_particle, random_state, s, r, b, delta, transition_cov, observation_var):

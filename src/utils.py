@@ -7,11 +7,32 @@ from matplotlib import rcParams
 from scipy.integrate import simps
 from scipy.special import logsumexp
 from scipy.optimize import minimize
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+import time
 import random
 from tqdm import tqdm
 
 # random_seed = 5
 
+def compute_cluster_centers(all_points):
+	all_points = StandardScaler().fit_transform(all_points)
+	db = DBSCAN(eps=0.3, min_samples=10).fit(all_points)
+	labels = db.labels_
+	print(labels)
+	sys.exit()
+	labels_unique = np.unique(db.labels_)
+
+	print(labels_unique.shape)
+	sys.exit()
+
+	centroids = []
+	for i in range(len(labels_unique)):
+		centroids.append(np.mean(all_points[labels_unique==i,:], axis=0))
+
+	centroids = np.asarray(centroids)
+	print(centroids.shape)
+	sys.exit()
 
 # Implements the IHS update. "right" means the term on the right of the difference
 # in the update rule (same for "left")
@@ -63,9 +84,13 @@ def scale_reduced_system(smaller_A, smaller_b):
 
 
 def reduce_system(n_particle, A, b):
+
 	# K = int(n_particle / 50)
 	K = 5
 	indices_tokeep = b.argsort()[-K:][::-1]
+	# OR EVENLY SPACED ? nah
+	# indices_tokeep = np.round(np.linspace(0, b.shape[0] - 1, K)).astype(int)
+
 	smaller_b = b[indices_tokeep]
 	temp = A[:, indices_tokeep]
 	smaller_A = temp[indices_tokeep, :]
@@ -88,11 +113,11 @@ def sanity_checks(unnormalized):
 def set_plotting():
 	# Set plotting
 	params = {
-		'axes.labelsize': 18,
-		'font.size': 14,
-		'legend.fontsize': 18,
-		'xtick.labelsize': 14,
-		'ytick.labelsize': 14,
+		'axes.labelsize': 25,
+		'font.size': 20,
+		'legend.fontsize': 24,
+		'xtick.labelsize': 25,
+		'ytick.labelsize': 25,
 		'text.usetex': False,
 		'figure.figsize': [20, 12],
 		'axes.labelpad': 10,

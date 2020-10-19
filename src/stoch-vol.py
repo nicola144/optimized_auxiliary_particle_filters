@@ -3,10 +3,16 @@
 from particles import *
 from utils import *
 
+dim = 2
+timesteps = 100
+n_particle = 100
+
 constant_mean = np.zeros(dim, )
 initial_cov = np.eye(dim)
-transition_cov = 1 * np.eye(dim)
-phi = np.diag(np.ones(dim, ))
+varcov = 10.
+varphi = 1
+transition_cov = varcov * np.eye(dim)
+phi = varphi * np.diag(np.ones(dim, ))
 
 
 def prior_sample(size=1):
@@ -37,24 +43,26 @@ seeds = np.loadtxt('seeds.out').astype('int64')
 # plt.tight_layout(pad=0.3)
 
 
-dim = 10
-timesteps = 100
-n_particle = 1000
 
 all_ess_bpf = []
 all_ess_apf = []
 all_ess_iapf = []
 all_ess_oapf = []
 
-all_wvar_bpf = []
-all_wvar_apf = []
-all_wvar_iapf = []
-all_wvar_oapf = []
+# all_wvar_bpf = []
+# all_wvar_apf = []
+# all_wvar_iapf = []
+# all_wvar_oapf = []
+#
+# all_nunique_bpf = []
+# all_nunique_apf = []
+# all_nunique_iapf = []
+# all_nunique_oapf = []
 
-all_nunique_bpf = []
-all_nunique_apf = []
-all_nunique_iapf = []
-all_nunique_oapf = []
+all_joint_logliks_bpf = []
+all_joint_logliks_apf = []
+all_joint_logliks_iapf = []
+all_joint_logliks_oapf = []
 
 for seed in tqdm(seeds):
 
@@ -111,10 +119,10 @@ for seed in tqdm(seeds):
 							phi=phi )
 
 
-	mean_bpf, covs_bpf, ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf = bpf.filter(observations)
-	mean_apf, covs_apf, ess_apf, n_unique_apf, w_vars_apf, liks_apf = apf.filter(observations)
-	mean_iapf, covs_iapf, ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf  = iapf.filter(observations)
-	mean_oapf, covs_oapf, ess_oapf, n_unique_oapf, w_vars_oapf, liks_oapf  = oapf.filter(observations)
+	mean_bpf, covs_bpf, ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf, joint_liks_bpf = bpf.filter(observations)
+	mean_apf, covs_apf, ess_apf, n_unique_apf, w_vars_apf, liks_apf, joint_liks_apf = apf.filter(observations)
+	mean_iapf, covs_iapf, ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf, joint_liks_iapf  = iapf.filter(observations)
+	mean_oapf, covs_oapf, ess_oapf, n_unique_oapf, w_vars_oapf, liks_oapf, joint_liks_oapf  = oapf.filter(observations)
 
 
 	all_ess_bpf.append(ess_bpf)
@@ -122,15 +130,20 @@ for seed in tqdm(seeds):
 	all_ess_iapf.append(ess_iapf)
 	all_ess_oapf.append(ess_oapf)
 
-	all_wvar_bpf.append(w_vars_bpf)
-	all_wvar_apf.append(w_vars_apf)
-	all_wvar_iapf.append(w_vars_iapf)
-	all_wvar_oapf.append(w_vars_oapf)
+	# all_wvar_bpf.append(w_vars_bpf)
+	# all_wvar_apf.append(w_vars_apf)
+	# all_wvar_iapf.append(w_vars_iapf)
+	# all_wvar_oapf.append(w_vars_oapf)
+	#
+	# all_nunique_bpf.append(n_unique_bpf)
+	# all_nunique_apf.append(n_unique_apf)
+	# all_nunique_iapf.append(n_unique_iapf)
+	# all_nunique_oapf.append(n_unique_oapf)
 
-	all_nunique_bpf.append(n_unique_bpf)
-	all_nunique_apf.append(n_unique_apf)
-	all_nunique_iapf.append(n_unique_iapf)
-	all_nunique_oapf.append(n_unique_oapf)
+	all_joint_logliks_bpf.append(joint_liks_bpf)
+	all_joint_logliks_apf.append(joint_liks_apf)
+	all_joint_logliks_iapf.append(joint_liks_iapf)
+	all_joint_logliks_oapf.append(joint_liks_oapf)
 
 
 
@@ -141,24 +154,48 @@ res_ess = np.vstack([
 	all_ess_oapf
 ])
 
-res_wvars = np.vstack([
-	all_wvar_bpf,
-	all_wvar_apf,
-	all_wvar_iapf,
-	all_wvar_oapf
+# res_wvars = np.vstack([
+# 	all_wvar_bpf,
+# 	all_wvar_apf,
+# 	all_wvar_iapf,
+# 	all_wvar_oapf
+# ])
+
+
+res_liks = np.vstack([
+	all_joint_logliks_bpf,
+	all_joint_logliks_apf,
+	all_joint_logliks_iapf,
+	all_joint_logliks_oapf
 ])
 
-res_nunique = np.vstack([
-	all_nunique_bpf,
-	all_nunique_apf,
-	all_nunique_iapf,
-	all_nunique_oapf
-])
+jointliks_bpf = res_liks[:100, :]
+jointliks_apf = res_liks[100:200, :]
+jointliks_iapf = res_liks[200:300, :]
+jointliks_oapf = res_liks[300:400, :]
 
+ess_bpf = res_ess[:100, :]
+ess_apf = res_ess[100:200, :]
+ess_iapf = res_ess[200:300, :]
+ess_oapf = res_ess[300:400, :]
 
-np.savetxt('results/stochvol/results_stochvol_ess_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res_ess, delimiter=',')
-np.savetxt('results/stochvol/results_stochvol_wvar_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res_wvars, delimiter=',')
-np.savetxt('results/stochvol/results_stochvol_nunique_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res_nunique, delimiter=',')
+print(np.average(ess_bpf))
+print(np.average(ess_apf))
+print(np.average(ess_iapf))
+print(np.average(ess_oapf))
+
+print(np.var( np.average(jointliks_bpf,axis=0),ddof=1 ))
+print(np.var( np.average(jointliks_apf,axis=0),ddof=1 ))
+print(np.var( np.average(jointliks_iapf,axis=0),ddof=1 ))
+print(np.var( np.average(jointliks_oapf,axis=0),ddof=1 ))
+
+sys.exit()
+
+np.savetxt('results/stochvol/ess/PAPER-results_stochvol_ess_'+str(n_particle)+'_particles-dim'+str(dim)+ 'varcov,varphi'+ str(varcov) + ',' +str(varphi) + '.out', res_ess, delimiter=',')
+np.savetxt('results/stochvol/joint_logliks/PAPER-results_stochvol_jointliks_'+str(n_particle)+'_particles-dim'+str(dim)+ 'varcov,varphi'+ str(varcov) + ',' +str(varphi) + '.out', res_liks, delimiter=',')
+
+# np.savetxt('results/stochvol/results_stochvol_wvar_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res_wvars, delimiter=',')
+# np.savetxt('results/stochvol/results_stochvol_nunique_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res_nunique, delimiter=',')
 
 
 

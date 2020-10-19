@@ -17,19 +17,19 @@ fig.tight_layout(pad=0.3)
 
 
 # m = 4 # n particles # FOR PAPER
-# w_prev = np.array([3., 1., 2., 3.])
+# w_prev = np.array([3/10,3/10,1/5,1/5 ])
 # w_prev = w_prev / np.sum(w_prev)
-# x_prev = np.array([2.5, 3.25, 3.75, 3.])
+# x_prev = np.array([ 2., 2.5 , 3.,3.5 ])
 # # x_prev = np.array([1.5, 3., 4.5, 5.5])
 #
-# lik_center = 4. # original 2.
+# lik_center = 3. # original 2.
 #----------------------------------------------------------------------------------
 
-# m = 4 # n particles
-# w_prev = np.array([1.5, 1.5, 1., 1.])
-# w_prev = w_prev / np.sum(w_prev)
-# x_prev = np.array([2., 2.5 , 3.,3.5])
-# lik_center = 3. # original 2.
+m = 4 # n particles
+w_prev = np.array([ 7/22, 1/11, 1/2, 1/11])
+w_prev = w_prev / np.sum(w_prev)
+x_prev = np.array([ 2., 2.5, 5., 5.5])
+lik_center = 3.5 # original 2.
 #----------------------------------------------------------------------------------
 
 # m = 4 # n particles Suplemenetary
@@ -49,11 +49,11 @@ m = 4 # n particles Suplemenetary
 
 
 # weights already normalized  Could include
-m = 4 # n particles
-w_prev = np.array([3.5, 1., 5.5, 1.])
-w_prev = w_prev / np.sum(w_prev)
-x_prev = np.array([2., 2.5, 5., 5.5])
-lik_center = 3.5 # original 2.
+# m = 4 # n particles
+# w_prev = np.array([3.5, 1., 5.5, 1.])
+# w_prev = w_prev / np.sum(w_prev)
+# x_prev = np.array([2., 2.5, 5., 5.5])
+# lik_center = 3.5 # original 2.
 #----------------------------------------------------------------------------------
 
 # weights already normalized  PERCHE ? 
@@ -107,8 +107,8 @@ sigma_lik = 1.2 # original 0.8
 # Neat example with sigma_lik=0.4, lik. center = 3.
 # WTH example with lik_center = 4. , x_prev = np.array([3., 5., 5., 5.])
 
-left = -3.
-right = 10.
+left = 0.
+right = 8
 
 n = 100000
 
@@ -125,7 +125,7 @@ color=iter(cm.rainbow(np.linspace(0,1,m)))
 for j in range(m):
 	c=next(color)
 	current = w_prev[j] * norm_scipy.pdf(x, loc=x_prev[j], scale=sigma_kernels)
-	ax[0].plot(x, current, c=c, label='Kernel '+str(j))
+	ax[0].plot(x, current, c=c, label='Kernel '+str(j),linewidth=2.5)
 
 predictive = np.dot(w_prev, norm_scipy.pdf(x, loc=x_prev.reshape(-1,1), scale=sigma_kernels))
 
@@ -175,24 +175,26 @@ F2 = pred_lik.reshape(-1,1)  * norm_scipy.pdf(x_prev, loc=x_prev.reshape(-1,1), 
 b = np.dot(F2,w_prev) 
 A = F1
 
+# A = np.log(A)
+# b = np.log(b)
 
-A = np.hstack((A, -np.eye(b.shape[0])))
-c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
-results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True,'disp':True,'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
-result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n "
-print(result)
-result_vec = results['x']
-psi = result_vec[:b.shape[0]]
-error = np.sum(result_vec[b.shape[0]:])
-print("Total error ", error)
+### Can use either Simplex
+# ---------------------------------------------------------------------------------
+# A = np.hstack((A, -np.eye(b.shape[0])))
+# c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
+# results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True,'disp':True,'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
+# result = "\n Success! \n" if results['status'] == 0 else "\n Something went wrong :( \n "
+# print(result)
+# result_vec = results['x']
+# psi = result_vec[:b.shape[0]]
+# error = np.sum(result_vec[b.shape[0]:])
+# print("Total error ", error)
+# ---------------------------------------------------------------------------------
+### Or NNLS
+psi = nnls(A,b)[0]
+# ---------------------------------------------------------------------------------
 
-
-# psi = nnls(A,b)[0]
-
-
-# psi = psi / np.sum(psi)
 psi = normalize(psi)
-
 
 new_proposal = np.dot( psi,  norm_scipy.pdf(X, loc=x_prev.reshape(-1,1), scale=sigma_kernels)  )
 
@@ -208,11 +210,13 @@ assert np.isclose(simps(apf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 assert np.isclose(simps(iapf_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 assert np.isclose(simps(new_proposal, dx=x[1]-x[0]),1.,rtol=1e-2,atol=1e-2)
 
-ax[1].plot(x,bpf_proposal, '--', c='b', label='BPF proposal')
-ax[1].plot(x,apf_proposal, '--', c='y',label='APF proposal')
-ax[1].plot(x,iapf_proposal, '--', c='g',label='IAPF proposal')
-ax[1].plot(x,new_proposal, '--', c='m',label='New proposal')
-ax[1].plot(x,true_post, '-.', c='k',label='True')
+ax[1].plot(x,bpf_proposal, '--', c='b', label='BPF proposal',linewidth=2.5)
+ax[1].plot(x,apf_proposal, '--', c=(1, 0.4, 0),label='APF proposal',linewidth=2.5)
+ax[1].plot(x,iapf_proposal, '--', c='g',label='IAPF proposal',linewidth=2.5)
+ax[1].plot(x,new_proposal, '--', c='m',label='New proposal',linewidth=2.5)
+ax[1].plot(x,true_post, c='k',label='True',linewidth=2.5)
+
+#
 
 # plot posterior at selected eval points 
 indices = np.array([ np.where(x == x_prev[i]) for i in range(m)]).flatten().tolist()
@@ -260,5 +264,5 @@ print("Chi-square for IAPF: ", chi_square(true_post,iapf_proposal,x))
 print("Chi-square for NPF: ", chi_square(true_post,new_proposal,x))
 
 
-plt.savefig("imgs/mog2.pdf", bbox_inches='tight')
-# plt.show()
+# plt.savefig("imgs/mog2-FINAL.pdf", bbox_inches='tight')
+plt.show()

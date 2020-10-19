@@ -22,9 +22,9 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 # data generation
 dim = 3
-timesteps = 1000
-n_particle = 1000
-dt = 0.01
+timesteps = 10000
+n_particle = 100
+dt = 0.008
 
 s=10
 r=28
@@ -56,6 +56,17 @@ def lorenz(x, y, z, s, r, b):
     return x_dot, y_dot, z_dot
 
 
+all_ess_bpf = []
+all_ess_apf = []
+all_ess_iapf = []
+all_ess_oapf = []
+
+all_joint_logliks_bpf = []
+all_joint_logliks_apf = []
+all_joint_logliks_iapf = []
+all_joint_logliks_oapf = []
+
+
 for seed in tqdm(seeds):
 
     random_state = np.random.RandomState(seed)
@@ -83,6 +94,7 @@ for seed in tqdm(seeds):
     observations = np.asarray(observations)
 
     states = np.vstack([xs,ys,zs]).T
+    states = states[1:,:]
 
     bpf = LorenzBPF(init_particle=prior_sample(random_state,size=n_particle),
                       random_state=random_state,
@@ -122,27 +134,65 @@ for seed in tqdm(seeds):
 
 
     mean_bpf, covs_bpf,  ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf, joint_liks_bpf = bpf.filter(observations)
+    # print('done bpf')
     mean_apf, covs_apf,  ess_apf, n_unique_apf, w_vars_apf, liks_apf, joint_liks_apf = apf.filter(observations)
+    # print('done apf')
     mean_iapf, covs_iapf,  ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf, joint_liks_iapf = iapf.filter(observations)
-    mean_oapf, covs_npf,  ess_npf, n_unique_npf, w_vars_npf, liks_oapf, joint_liks_oapf = oapf.filter(observations)
+    # print('done iapf')
+    mean_oapf, covs_npf,  ess_oapf, n_unique_oapf, w_vars_oapf, liks_oapf, joint_liks_oapf = oapf.filter(observations)
+    # print('done oapf')
 
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    all_ess_bpf.append(ess_bpf)
+    all_ess_apf.append(ess_apf)
+    all_ess_iapf.append(ess_iapf)
+    all_ess_oapf.append(ess_oapf)
 
-    ax.plot(mean_bpf[:,0], mean_bpf[:,1], mean_bpf[:,2], 'b', lw=0.5)
-    ax.plot(mean_apf[:,0], mean_apf[:,1], mean_apf[:,2], 'y', lw=0.5)
-    ax.plot(mean_iapf[:,0], mean_iapf[:,1], mean_iapf[:,2], 'c', lw=0.5)
-    ax.plot(mean_oapf[:,0], mean_oapf[:,1], mean_oapf[:,2], 'm', lw=0.5)
-    ax.plot(states[:,0], states[:,1], states[:,2], 'r', lw=0.5)
+    all_joint_logliks_bpf.append(joint_liks_bpf)
+    all_joint_logliks_apf.append(joint_liks_apf)
+    all_joint_logliks_iapf.append(joint_liks_iapf)
+    all_joint_logliks_oapf.append(joint_liks_oapf)
 
-    ax.set_xlabel("X Axis")
-    ax.set_ylabel("Y Axis")
-    ax.set_zlabel("Z Axis")
-    ax.set_title("Lorenz Attractor")
+res_ess = np.vstack([
+    all_ess_bpf,
+    all_ess_apf,
+    all_ess_iapf,
+    all_ess_oapf
+])
 
-    plt.show()
+res_liks = np.vstack([
+    all_joint_logliks_bpf,
+    all_joint_logliks_apf,
+    all_joint_logliks_iapf,
+    all_joint_logliks_oapf
+])
 
-    sys.exit()
+np.savetxt('results/lorenz/ess/PAPER-dt0.008-results_lorenz_ess_'+str(n_particle)+'_particles-dim'+str(dim)+ '-timest-'+ str(timesteps) +'.out', res_ess, delimiter=',')
+np.savetxt('results/lorenz/joint_logliks/PAPER-dt0.008-results_lorenz_jointliks_'+str(n_particle)+'_particles-dim'+str(dim)+'-timest-'+ str(timesteps)+'.out', res_liks, delimiter=',')
+
+
+    # print(np.average(mse(mean_bpf,states)))
+    # print(np.average(mse(mean_apf,states)))
+    # print(np.average(mse(mean_iapf,states)))
+    # print(np.average(mse(mean_oapf,states)))
+
+    # fig = plt.figure()
+    # ax = fig.gca(projection='3d')
+    #
+    # ax.plot(mean_bpf[:,0], mean_bpf[:,1], mean_bpf[:,2], 'b', lw=0.5)
+    # ax.plot(mean_apf[:,0], mean_apf[:,1], mean_apf[:,2], 'y', lw=0.5)
+    # ax.plot(mean_iapf[:,0], mean_iapf[:,1], mean_iapf[:,2], 'c', lw=0.8, label='IAPF mean')
+    # ax.plot(mean_oapf[:,0], mean_oapf[:,1], mean_oapf[:,2], 'm', lw=0.8, label="OAPF mean")
+    # ax.plot(states[:,0], states[:,1], states[:,2], 'r--', lw=0.5, label='True trajectory')
+    #
+    # ax.set_xlabel("X Axis")
+    # ax.set_ylabel("Y Axis")
+    # ax.set_zlabel("Z Axis")
+    # ax.set_title("Lorenz Attractor")
+    # plt.legend()
+    #
+    # plt.show()
+    #
+    # sys.exit()
 
 
 

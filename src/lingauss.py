@@ -4,9 +4,9 @@ from particles import *
 from pykalman import KalmanFilter
 from utils import *
 
-dim = 10
+dim = 2
 
-n_particle = 1000
+n_particle = 10000
 
 
 set_plotting()
@@ -20,7 +20,7 @@ set_plotting()
 
 # specify parameters
 
-n_timesteps = 100
+n_timesteps = 1
 
 # transition_matrix = random_state.randn(2, 2).T.dot(random_state.randn(2, 2)) + 5.
 # transition_offset = [0., 0.]
@@ -42,6 +42,11 @@ transition_matrix = np.eye(dim) * 1/2
 observation_matrix = np.eye(dim) * 1/2
 transition_offset = np.array([-2,2,-2,2,-2,2,-2,2,-2,2])
 observation_offset = np.array([-2,2,-2,2,-2,2,-2,2,-2,2])
+
+# transition_offset = np.array([-2,2,-2,2,-2])
+# observation_offset = np.array([-2,2,-2,2,-2])
+#
+#
 # transition_offset = np.array([-2,2])
 # observation_offset = np.array([-2,2])
 
@@ -153,17 +158,59 @@ for seed in tqdm(seeds):
     mean_iapf, covs_iapf,  ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf, joint_liks_iapf = iapf.filter(observations)
     mean_oapf, covs_npf,  ess_npf, n_unique_npf, w_vars_npf, liks_oapf, joint_liks_oapf = oapf.filter(observations)
 
+    sys.exit()
+
 
     # true results given by KF
-    mean_kf, covs_kf = kf.filter(observations)
     true_logliks, true_loglik = kf.loglikelihood(observations)
     joint_true_logliks = np.cumsum(true_logliks)
+
+    mean_kf, covs_kf = kf.filter(observations)
+    # mean_kf = np.zeros((n_timesteps, dim))
+    # covs_kf = np.zeros((n_timesteps, dim, dim))
+    mean_kf_estimate = np.zeros((n_timesteps, dim))
+
+    # for t in range(n_timesteps - 1):
+    #     if t == 0:
+    #         mean_kf[t] = initial_state_mean
+    #         covs_kf[t] = initial_state_covariance
+    #         mean_kf_estimate[t] = np.average(random_state.multivariate_normal(mean=mean_kf[t],cov=covs_kf[t],size=n_particle),axis=0)
+    #
+    #     mean_kf[t + 1], covs_kf[t + 1] = (
+    #         kf.filter_update(
+    #             mean_kf[t],
+    #             covs_kf[t],
+    #             observations[t + 1],
+    #             transition_offset=transition_offset,
+    #         )
+    #     )
+    #     mean_kf_estimate[t+1] = np.average(random_state.multivariate_normal(mean=mean_kf[t + 1], cov=covs_kf[t + 1],size=n_particle))
+    #     mean_lik = np.matmul(states[t], observation_matrix) + observation_offset
+    #
+    #     samples_posterior = random_state.multivariate_normal(mean=mean_kf[t+1],cov=covs_kf[t+1],size=n_particle)
+    #
+    #     mean_all = np.matmul(np.array(samples_posterior), observation_matrix) + observation_offset
+    #     obs = torch.from_numpy(observations[t+1]).double()
+    #     obs_all = obs[None, ...].repeat_interleave(n_particle, 0)
+    #     mean_all = torch.from_numpy(mean_all).double()
+    #     obs_cov = torch.from_numpy(observation_covariance).double()
+    #     log_liks = MultivariateNormal(mean_all, obs_cov).log_prob(obs_all)
+    #     log_prior = MultivariateNormal(torch.from_numpy(mean_kf[t]),torch.from_numpy(covs_kf[t])).log_prob(torch.from_numpy(samples_posterior))
+    #
+    #     inverse_constant = log_liks + log_prior
+    #     constant_estimate =  logsumexp(inverse_constant, axis=0) - np.log(n_particle)
+    #     if t==20:
+    #         print(constant_estimate)
+    #         print(true_logliks[20])
+    #         sys.exit()
+
 
     #MEANS
     mean_deviations_bpf = np.average(mse(mean_bpf, mean_kf))
     mean_deviations_apf = np.average(mse(mean_apf, mean_kf))
     mean_deviations_iapf = np.average(mse(mean_iapf, mean_kf))
     mean_deviations_oapf = np.average(mse(mean_oapf, mean_kf))
+
     all_mean_deviations_bpf.append(mean_deviations_bpf)
     all_mean_deviations_apf.append(mean_deviations_apf)
     all_mean_deviations_iapf.append(mean_deviations_iapf)
@@ -189,7 +236,6 @@ for seed in tqdm(seeds):
     all_joint_logliks_deviations_iapf.append(joint_logliks_deviations_iapf)
     all_joint_logliks_deviations_oapf.append(joint_logliks_deviations_oapf)
 
-
     # plt.plot(liks_bpf, 'b', label='bpf')
     # plt.plot(liks_apf, 'y', label='apf')
     # plt.plot(liks_iapf, 'c', label='iapf')
@@ -209,12 +255,12 @@ res_means = np.vstack([
     all_mean_deviations_oapf
 ])
 
-res_logliks = np.vstack([
-    all_logliks_deviations_bpf,
-    all_logliks_deviations_apf,
-    all_logliks_deviations_iapf,
-    all_logliks_deviations_oapf
-])
+# res_logliks = np.vstack([
+#     all_logliks_deviations_bpf,
+#     all_logliks_deviations_apf,
+#     all_logliks_deviations_iapf,
+#     all_logliks_deviations_oapf
+# ])
 
 res_joint_logliks = np.vstack([
     all_joint_logliks_deviations_bpf,
@@ -226,8 +272,8 @@ res_joint_logliks = np.vstack([
 
 
 # REDUCED
-np.savetxt('results/lingauss/means/results_lingauss_'+str(n_particle)+'_reduced5_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res_means, delimiter=',')
-np.savetxt('results/lingauss/logliks/results_lingauss_'+str(n_particle)+'_reduced5_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res_logliks, delimiter=',')
+# np.savetxt('results/lingauss/means/results_lingauss_'+str(n_particle)+'_reduced5_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res_means, delimiter=',')
+# np.savetxt('results/lingauss/logliks/results_lingauss_'+str(n_particle)+'_reduced5_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res_logliks, delimiter=',')
 np.savetxt('results/lingauss/joint_logliks/results_lingauss_'+str(n_particle)+'_reduced5_particles-dim'+str(dim)+'-trvar'+str(trans_var)+'-obsvar'+str(obs_var)+'.out', res_joint_logliks, delimiter=',')
 
 # NONREDUCED
