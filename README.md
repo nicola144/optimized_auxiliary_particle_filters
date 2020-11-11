@@ -2,6 +2,6 @@
 
 Code for experiments with OAPF (Optimized Auxiliary Particle Filter) used for my MSc Dissertation at the University of Edinburgh. 
 
-Paper in "PAPER.PDF" 
+Paper in "MAIN_PAPER.pdf" 
 
-Supplementary in "SUPP.PDF" 
+Supplementary in "SUPP.pdf" 
