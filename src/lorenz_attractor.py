@@ -22,9 +22,9 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 # data generation
 dim = 3
-timesteps = 10000
+timesteps = 50
 n_particle = 100
-dt = 0.008
+dt = 0.001
 
 s=10
 r=28
@@ -66,6 +66,11 @@ all_joint_logliks_apf = []
 all_joint_logliks_iapf = []
 all_joint_logliks_oapf = []
 
+all_times_bpf = []
+all_times_apf = []
+all_times_iapf = []
+all_times_oapf = []
+
 
 for seed in tqdm(seeds):
 
@@ -102,7 +107,7 @@ for seed in tqdm(seeds):
                       r=r,
                       b=b,
                       delta=dt,
-                      transition_cov=np.eye(3),
+                      transition_cov=np.eye(3)*1,
                       observation_var = np.eye(1))
 
     apf = LorenzAPF(init_particle=prior_sample(random_state,size=n_particle),
@@ -111,7 +116,7 @@ for seed in tqdm(seeds):
                       r=r,
                       b=b,
                       delta=dt,
-                      transition_cov=np.eye(3),
+                      transition_cov=np.eye(3)*1,
                       observation_var = np.eye(1))
 
     iapf = LorenzIAPF(init_particle=prior_sample(random_state,size=n_particle),
@@ -120,7 +125,7 @@ for seed in tqdm(seeds):
                       r=r,
                       b=b,
                       delta=dt,
-                      transition_cov=np.eye(3),
+                      transition_cov=np.eye(3)*1,
                       observation_var = np.eye(1))
 
     oapf = LorenzOAPF(init_particle=prior_sample(random_state,size=n_particle),
@@ -129,18 +134,17 @@ for seed in tqdm(seeds):
                       r=r,
                       b=b,
                       delta=dt,
-                      transition_cov=np.eye(3),
+                      transition_cov=np.eye(3)*1,
                       observation_var = np.eye(1))
 
-
-    mean_bpf, covs_bpf,  ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf, joint_liks_bpf = bpf.filter(observations)
-    # print('done bpf')
-    mean_apf, covs_apf,  ess_apf, n_unique_apf, w_vars_apf, liks_apf, joint_liks_apf = apf.filter(observations)
-    # print('done apf')
-    mean_iapf, covs_iapf,  ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf, joint_liks_iapf = iapf.filter(observations)
-    # print('done iapf')
-    mean_oapf, covs_npf,  ess_oapf, n_unique_oapf, w_vars_oapf, liks_oapf, joint_liks_oapf = oapf.filter(observations)
-    # print('done oapf')
+    mean_bpf, covs_bpf, ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf, joint_liks_bpf, times_bpf = bpf.filter(
+        observations)
+    mean_apf, covs_apf, ess_apf, n_unique_apf, w_vars_apf, liks_apf, joint_liks_apf, times_apf = apf.filter(
+        observations)
+    mean_iapf, covs_iapf, ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf, joint_liks_iapf, times_iapf = iapf.filter(
+        observations)
+    mean_oapf, covs_oapf, ess_oapf, n_unique_oapf, w_vars_oapf, liks_oapf, joint_liks_oapf, times_oapf = oapf.filter(
+        observations)
 
     all_ess_bpf.append(ess_bpf)
     all_ess_apf.append(ess_apf)
@@ -151,6 +155,11 @@ for seed in tqdm(seeds):
     all_joint_logliks_apf.append(joint_liks_apf)
     all_joint_logliks_iapf.append(joint_liks_iapf)
     all_joint_logliks_oapf.append(joint_liks_oapf)
+
+    all_times_bpf.append(times_bpf)
+    all_times_apf.append(times_apf)
+    all_times_iapf.append(times_iapf)
+    all_times_oapf.append(times_oapf)
 
 res_ess = np.vstack([
     all_ess_bpf,
@@ -165,6 +174,28 @@ res_liks = np.vstack([
     all_joint_logliks_iapf,
     all_joint_logliks_oapf
 ])
+
+ess_bpf = res_ess[:100, :]
+ess_apf = res_ess[100:200, :]
+ess_iapf = res_ess[200:300, :]
+ess_oapf = res_ess[300:400, :]
+
+jointliks_bpf = res_liks[:100, :]
+jointliks_apf = res_liks[100:200, :]
+jointliks_iapf = res_liks[200:300, :]
+jointliks_oapf = res_liks[300:400, :]
+
+print(np.average(ess_bpf))
+print(np.average(ess_apf))
+print(np.average(ess_iapf))
+print(np.average(ess_oapf))
+
+
+print(np.average(jointliks_bpf))
+print(np.average(jointliks_apf))
+print(np.average(jointliks_iapf))
+print(np.average(jointliks_oapf))
+sys.exit()
 
 np.savetxt('results/lorenz/ess/PAPER-dt0.008-results_lorenz_ess_'+str(n_particle)+'_particles-dim'+str(dim)+ '-timest-'+ str(timesteps) +'.out', res_ess, delimiter=',')
 np.savetxt('results/lorenz/joint_logliks/PAPER-dt0.008-results_lorenz_jointliks_'+str(n_particle)+'_particles-dim'+str(dim)+'-timest-'+ str(timesteps)+'.out', res_liks, delimiter=',')

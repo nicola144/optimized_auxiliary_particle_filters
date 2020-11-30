@@ -10,14 +10,13 @@ set_plotting()
 # plt.yscale('log')
 
 
-res_liks = np.loadtxt('results/lingauss/joint_logliks/results_lingauss_1000_reduced5_particles-dim10-trvar5.0-obsvar2.5.out',  delimiter=',')
+res_liks = np.loadtxt('results/lingauss/joint_logliks/results_lingauss_withoptimal100_reduced5_particles-dim2-trvar5-obsvar2.5.out',  delimiter=',')
 
 N = res_liks.shape[1]
 print(np.average(res_liks, axis=1))
 print(np.sqrt(np.var(res_liks,ddof=1,axis=1)) / np.sqrt(N) )
 
-
-
+sys.exit()
 
 
 # n_monte_carlo = 100000
@@ -49,14 +48,14 @@ print(d['medians'][3].get_ydata(orig=True)[0])
 # plt.axhline(y=d['medians'][1].get_ydata(orig=True)[0], color='b', linestyle='-')
 
 
-# plt.show()
+plt.show()
 
 
 
 
 
 
-plt.savefig('results/boxplot-FINAL.pdf', bbox_inches='tight')
+# plt.savefig('results/boxplot-FINAL.pdf', bbox_inches='tight')
 
 # 0.0031599361015733915
 # 0.0027931818448951977

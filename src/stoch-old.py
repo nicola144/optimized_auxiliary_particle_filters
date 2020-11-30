@@ -1,18 +1,15 @@
 
-
 from particles import *
 from utils import *
 
 dim = 2
-timesteps = 1
-n_particle = 1000
+timesteps = 100
+n_particle = 100
 
 constant_mean = np.zeros(dim, )
 initial_cov = np.eye(dim)
-varcov = 3.
-varphi = .5
-transition_cov = varcov * np.eye(dim)
-phi = varphi * np.diag(np.ones(dim, ))
+transition_cov = 1 * np.eye(dim)
+phi = np.diag(np.ones(dim, ))
 
 
 def prior_sample(size=1):
@@ -42,30 +39,22 @@ seeds = np.loadtxt('seeds.out').astype('int64')
 # plt.subplots_adjust(top=0.95)
 # plt.tight_layout(pad=0.3)
 
-all_times_bpf = []
-all_times_apf = []
-all_times_iapf = []
-all_times_oapf = []
+
 
 all_ess_bpf = []
 all_ess_apf = []
 all_ess_iapf = []
 all_ess_oapf = []
 
-# all_wvar_bpf = []
-# all_wvar_apf = []
-# all_wvar_iapf = []
-# all_wvar_oapf = []
-#
-# all_nunique_bpf = []
-# all_nunique_apf = []
-# all_nunique_iapf = []
-# all_nunique_oapf = []
+all_wvar_bpf = []
+all_wvar_apf = []
+all_wvar_iapf = []
+all_wvar_oapf = []
 
-all_joint_logliks_bpf = []
-all_joint_logliks_apf = []
-all_joint_logliks_iapf = []
-all_joint_logliks_oapf = []
+all_nunique_bpf = []
+all_nunique_apf = []
+all_nunique_iapf = []
+all_nunique_oapf = []
 
 for seed in tqdm(seeds):
 
@@ -98,87 +87,66 @@ for seed in tqdm(seeds):
 	# End of data gen.
 
 	bpf = StochVolBPF(init_particle=prior_sample(size=n_particle),
-							random_state=random_state,
-							transition_cov=transition_cov,
-							transition_offset=constant_mean,
-							phi=phi )
+					  random_state=random_state,
+					  transition_cov=transition_cov,
+					  transition_offset=constant_mean,
+					  phi=phi )
 
 	apf = StochVolAPF(init_particle=prior_sample(size=n_particle),
-							random_state=random_state,
-							transition_cov=transition_cov,
-							transition_offset=constant_mean,
-							phi=phi )
+					  random_state=random_state,
+					  transition_cov=transition_cov,
+					  transition_offset=constant_mean,
+					  phi=phi )
 
 	iapf = StochVolIAPF(init_particle=prior_sample(size=n_particle),
-							random_state=random_state,
-							transition_cov=transition_cov,
-							transition_offset=constant_mean,
-							phi=phi )
+						random_state=random_state,
+						transition_cov=transition_cov,
+						transition_offset=constant_mean,
+						phi=phi )
 
 	oapf = StochVolOAPF(init_particle=prior_sample(size=n_particle),
-							random_state=random_state,
-							transition_cov=transition_cov,
-							transition_offset=constant_mean,
-							phi=phi )
+						random_state=random_state,
+						transition_cov=transition_cov,
+						transition_offset=constant_mean,
+						phi=phi )
 
 
-	mean_bpf, covs_bpf, ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf, joint_liks_bpf, times_bpf = bpf.filter(observations)
-	mean_apf, covs_apf, ess_apf, n_unique_apf, w_vars_apf, liks_apf, joint_liks_apf, times_apf = apf.filter(observations)
-	mean_iapf, covs_iapf, ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf, joint_liks_iapf, times_iapf  = iapf.filter(observations)
-	mean_oapf, covs_oapf, ess_oapf, n_unique_oapf, w_vars_oapf, liks_oapf, joint_liks_oapf, times_oapf  = oapf.filter(observations)
+	mean_bpf, covs_bpf, ess_bpf, n_unique_bpf, w_vars_bpf, liks_bpf, joint_liks_bpf = bpf.filter(observations)
+	mean_apf, covs_apf, ess_apf, n_unique_apf, w_vars_apf, liks_apf, joint_liks_apf = apf.filter(observations)
+	mean_iapf, covs_iapf, ess_iapf, n_unique_iapf, w_vars_iapf, liks_iapf, joint_liks_iapf  = iapf.filter(observations)
+	mean_oapf, covs_oapf, ess_oapf, n_unique_oapf, w_vars_oapf, liks_oapf, joint_liks_oapf  = oapf.filter(observations)
 
-	all_times_bpf.append(times_bpf)
-	all_times_apf.append(times_apf)
-	all_times_iapf.append(times_iapf)
-	all_times_oapf.append(times_oapf)
 
 	all_ess_bpf.append(ess_bpf)
 	all_ess_apf.append(ess_apf)
 	all_ess_iapf.append(ess_iapf)
 	all_ess_oapf.append(ess_oapf)
 
-	# all_wvar_bpf.append(w_vars_bpf)
-	# all_wvar_apf.append(w_vars_apf)
-	# all_wvar_iapf.append(w_vars_iapf)
-	# all_wvar_oapf.append(w_vars_oapf)
-	#
-	# all_nunique_bpf.append(n_unique_bpf)
-	# all_nunique_apf.append(n_unique_apf)
-	# all_nunique_iapf.append(n_unique_iapf)
-	# all_nunique_oapf.append(n_unique_oapf)
+	all_wvar_bpf.append(w_vars_bpf)
+	all_wvar_apf.append(w_vars_apf)
+	all_wvar_iapf.append(w_vars_iapf)
+	all_wvar_oapf.append(w_vars_oapf)
 
-	# all_joint_logliks_bpf.append(liks_bpf)
-	# all_joint_logliks_apf.append(liks_apf)
-	# all_joint_logliks_iapf.append(liks_iapf)
-	# all_joint_logliks_oapf.append(liks_oapf)
+	all_nunique_bpf.append(n_unique_bpf)
+	all_nunique_apf.append(n_unique_apf)
+	all_nunique_iapf.append(n_unique_iapf)
+	all_nunique_oapf.append(n_unique_oapf)
 
 
-	all_joint_logliks_bpf.append(joint_liks_bpf)
-	all_joint_logliks_apf.append(joint_liks_apf)
-	all_joint_logliks_iapf.append(joint_liks_iapf)
-	all_joint_logliks_oapf.append(joint_liks_oapf)
-
-
-
-print("Times")
-print(np.average(all_times_bpf))
-print(np.average(all_times_apf))
-print(np.average(all_times_iapf))
-print(np.average(all_times_oapf))
-sys.exit()
-
-res_ess = np.vstack([
-	all_ess_bpf,
-	all_ess_apf,
-	all_ess_iapf,
-	all_ess_oapf
-])
 
 res_liks = np.vstack([
 	all_joint_logliks_bpf,
 	all_joint_logliks_apf,
 	all_joint_logliks_iapf,
 	all_joint_logliks_oapf
+])
+
+
+res_ess = np.vstack([
+	all_ess_bpf,
+	all_ess_apf,
+	all_ess_iapf,
+	all_ess_oapf
 ])
 
 jointliks_bpf = res_liks[:100, :]
@@ -192,32 +160,30 @@ ess_iapf = res_ess[200:300, :]
 ess_oapf = res_ess[300:400, :]
 
 
-print("Liks")
+
 print(np.average(jointliks_bpf))
 print(np.average(jointliks_apf))
 print(np.average(jointliks_iapf))
 print(np.average(jointliks_oapf))
 
-print("ESS")
-print(np.average(ess_bpf))
-print(np.average(ess_apf))
-print(np.average(ess_iapf))
-print(np.average(ess_oapf))
-
-
-
-print("Settings")
-print('timesteps', timesteps)
-print('particles', n_particle)
-print('dim', dim)
-print('varcov', varcov)
-print('vaphi',varphi)
-
 sys.exit()
 
-np.savetxt('results/stochvol/ess/PAPER-results_stochvol_ess_'+str(n_particle)+'_particles-dim'+str(dim)+ 'varcov,varphi'+ str(varcov) + ',' +str(varphi) + '.out', res_ess, delimiter=',')
-np.savetxt('results/stochvol/joint_logliks/PAPER-results_stochvol_jointliks_'+str(n_particle)+'_particles-dim'+str(dim)+ 'varcov,varphi'+ str(varcov) + ',' +str(varphi) + '.out', res_liks, delimiter=',')
+# res_wvars = np.vstack([
+# 	all_wvar_bpf,
+# 	all_wvar_apf,
+# 	all_wvar_iapf,
+# 	all_wvar_oapf
+# ])
+#
+# res_nunique = np.vstack([
+# 	all_nunique_bpf,
+# 	all_nunique_apf,
+# 	all_nunique_iapf,
+# 	all_nunique_oapf
+# ])
 
+
+# np.savetxt('results/stochvol/results_stochvol_ess_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res_ess, delimiter=',')
 # np.savetxt('results/stochvol/results_stochvol_wvar_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res_wvars, delimiter=',')
 # np.savetxt('results/stochvol/results_stochvol_nunique_'+str(n_particle)+'_particles-dim'+str(dim)+'.out', res_nunique, delimiter=',')
 
@@ -257,12 +223,3 @@ plt.show()
 # plt.fill_between(np.arange(len(mean_apf[:,i])), mean_apf[:,i] - np.sqrt(covs_apf[:,i,i]), mean_apf[:,i] + np.sqrt(covs_apf[:,i,i]), edgecolor=(1, 1, .4, 0.99) , facecolor=(1, 1, .4, 0.3), label="std_apf", linewidth=1.5)
 # plt.legend()
 # plt.show()
-
-
-
-
-
-
-
-
-

@@ -83,12 +83,15 @@ def scale_reduced_system(smaller_A, smaller_b):
 	return scaled_smaller_A, scaled_smaller_b
 
 
+
+def safe_invert(matrix):
+	return np.linalg.lstsq(matrix, np.eye(matrix.shape[0]))[0]
+
 def reduce_system(n_particle, A, b):
 
 	# K = int(n_particle / 50)
 	K = 5
 	indices_tokeep = b.argsort()[-K:][::-1]
-	# OR EVENLY SPACED ? nah
 	# indices_tokeep = np.round(np.linspace(0, b.shape[0] - 1, K)).astype(int)
 
 	smaller_b = b[indices_tokeep]
