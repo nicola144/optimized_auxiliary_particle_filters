@@ -233,7 +233,6 @@ class APF(ParticleFilter):
     def compute_logz(self,w,l):
         # this is correct for apf
         return logsumexp(w) + logsumexp( log_normalize_log(self.importance_weight[-2]) + self.pred_liks[-1]) - np.log(self.n_particle)
-        # return logsumexp(w) - np.log(self.n_particle)
 
 
 class FullyAdaptedAPF(ParticleFilter):
@@ -255,7 +254,7 @@ class FullyAdaptedAPF(ParticleFilter):
 
     def importance_weight_function(self, observed):
 
-        unnormalized = np.log(self.n_particle) * np.ones(self.n_particle)
+        unnormalized = np.zeros(self.n_particle)
         self.importance_weight.append(unnormalized)
 
     def simulation_weight_function(self, observed):
@@ -263,18 +262,21 @@ class FullyAdaptedAPF(ParticleFilter):
         prev_centers = self.compute_prev_centers(self.particle[-1])
         self.prev_centers_list_non_resampled.append(prev_centers)
 
+        # mean_pred_lik = self.observation_mat.dot(prev_centers.T).T
         mean_pred_lik = prev_centers.dot(self.observation_mat)
         pred_lik = self.optimal_lambda_density(obs=observed, mean=mean_pred_lik)
 
         self.pred_liks.append(pred_lik)
 
-        unnormalized = self.importance_weight[-1] + pred_lik
+        unnormalized = pred_lik - np.log(self.n_particle)
         self.simulation_weight.append(unnormalized)
 
     def compute_logz(self,w,l):
-        # this is correct for apf
-        return logsumexp(w) + logsumexp( log_normalize_log(self.importance_weight[-2]) + self.pred_liks[-1]) - np.log(self.n_particle)
+        # this is correct for faapf
+        
+        return logsumexp(  self.pred_liks[-1] ) - np.log(self.n_particle)
         # return logsumexp(w) - np.log(self.n_particle)
+        # return logsumexp(w) + logsumexp( log_normalize_log(self.importance_weight[-2]) + self.pred_liks[-1]) - np.log(self.n_particle)
 
     def optimal_lambda_density(self,obs,mean):
 
@@ -306,7 +308,7 @@ class IAPF(ParticleFilter):
         proposal = logmatmulexp(kernels, np.array(self.simulation_weight[-1]))
         lik = self.observation_density(obs=observed, mean=self.particle[-1], offset=self.observation_offset)
         unnormalized = lik + predictive - proposal
-        # self.importance_weight[-1] = unnormalized
+
         self.importance_weight.append(unnormalized)
 
     def simulation_weight_function(self, observed):
@@ -321,90 +323,8 @@ class IAPF(ParticleFilter):
         self.simulation_weight.append(unnormalized)
 
     def compute_logz(self,w,l):
-        # return logsumexp(w) - np.log(self.n_particle)
         return logsumexp(w) + logsumexp( l ) - np.log(self.n_particle)
 
-# class OAPF(ParticleFilter):
-#
-#     def __init__(self, **params):
-#         super().__init__(**params)
-#         self.simulation_weight = []
-#         self.prev_centers_list_resampled = []
-#         self.prev_centers_list_non_resampled = []
-#
-#     # This is really the same for IAPF and OAPF
-#     def importance_weight_function(self, observed):
-#         prev_centers = self.prev_centers_list_non_resampled[-1]
-#
-#         kernels = self.transition_density(at=self.particle[-1], mean=prev_centers)
-#
-#         predictive = logmatmulexp(kernels, np.array(log_normalize_log(self.importance_weight[-1])))
-#         proposal = logmatmulexp(kernels, np.array(log_normalize_log(self.simulation_weight[-1])))
-#
-#         lik = self.observation_density(obs=observed, mean=self.particle[-1], offset=self.observation_offset)
-#
-#         unnormalized = lik + predictive - proposal
-#         # self.importance_weight[-1] = unnormalized
-#         self.importance_weight.append(unnormalized)
-#
-#     def simulation_weight_function(self, observed):
-#         prev_centers = self.compute_prev_centers(self.particle[-1])
-#         self.prev_centers_list_non_resampled.append(prev_centers)
-#
-#
-#         kernels_at_centers = self.transition_density(at=prev_centers, mean=prev_centers)
-#
-#         pred_lik = self.observation_density(obs=observed, mean=prev_centers, offset=self.observation_offset)
-#
-#         scaled_kernels = pred_lik.reshape(-1, 1) + kernels_at_centers
-#
-#         logA = kernels_at_centers
-#
-#         logb = logmatmulexp(scaled_kernels, np.array(log_normalize_log(self.importance_weight[-1])))
-#
-#         # Conditioning ?
-#         A = np.exp(logA) + np.eye(logb.shape[0]) * 1e-9
-#         b = np.exp(logb)
-#
-#         # A = np.array(A,dtype=np.longdouble)
-#         # b = np.array(b,dtype=np.longdouble)
-#         #
-#         # A = A + 1e-10 * np.eye(b.shape[0])
-#
-#         # if not check_symmetric(A):
-#         #     print('not symm')
-#         #     sys.exit()
-#
-#
-#         if reduce:
-#             unnormalized = np.zeros(b.shape)
-#             smaller_A,smaller_b, indices_tokeep = reduce_system(self.n_particle,A,b)
-#             res = nnls(smaller_A,smaller_b)[0]
-#             np.add.at(unnormalized, indices_tokeep, res)
-#         else:
-#             unnormalized = nnls(A, b)[0]
-#             # unnormalized = least_squares(fun_rosenbrock, x0_rosenbrock).x
-#
-#             # print(sparsity(unnormalized))
-#             # Or can use simplex/ interior point
-#
-#             # A = np.hstack((A, -np.eye(b.shape[0])))
-#             # c = np.concatenate(( np.zeros(b.shape[0]), np.ones(b.shape[0])  ))
-#             # results = linprog(c=c, A_eq=A, b_eq=b, bounds=[(0,None)]*b.shape[0]*2, method='revised simplex',options={'presolve':True, 'sparse':True}) # ,options={'presolve':False} can be interior-point or revised simplex
-#             # result_vec = results['x']
-#             # unnormalized = result_vec[:b.shape[0]]
-#
-#         # unnormalized = randomized_nnls(A, b, self.n_particle)
-#         sanity_checks(unnormalized)
-#
-#         # will trigger warning about taking log of 0. it's fine
-#         # since subsequent functions can handle -np.inf
-#         to_append = np.log(unnormalized)
-#         self.simulation_weight.append(unnormalized)
-#
-#     def compute_logz(self,w,l):
-#         # return logsumexp(w) + logsumexp( l ) - np.log(self.n_particle)
-#         return logsumexp(w) - np.log(self.n_particle)
 class OAPF(ParticleFilter):
 
     def __init__(self, **params):
@@ -530,17 +450,21 @@ class LinearGaussianPF(ParticleFilter):
         return res
 
     def propagate_optimal(self, resampled_particles, obs):
+
+        obs = np.tile(obs,(self.n_particle,1))
+
         prev_centers = self.compute_prev_centers(resampled_particles)
         self.prev_centers_list_resampled.append(prev_centers)
 
-        mean_optimal = (prev_centers.dot(self.sigma_x_inv) + self.observation_mat.T.dot(self.sigma_y_inv.dot(obs))).dot(self.optimal_kernel_cov)
+        right = obs.dot(self.sigma_y_inv).dot(self.observation_mat)
+
+        temp = prev_centers.dot(self.sigma_x_inv) + right
+
+        mean_optimal = temp.dot(self.optimal_kernel_cov)
 
         res = mean_optimal + self.random_state.multivariate_normal(mean=np.zeros(self.ndim_hidden), cov=self.optimal_kernel_cov,
                                                                    size=self.n_particle)
         return res
-
-
-
 
 class LinearGaussianFullyAdapted(FullyAdaptedAPF, LinearGaussianPF):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
@@ -554,7 +478,6 @@ class LinearGaussianFullyAdapted(FullyAdaptedAPF, LinearGaussianPF):
                                                 transition_offset=transition_offset,
                                                 observation_mat=observation_mat,
                                                 observation_offset=observation_offset)
-
 
 class LinearGaussianBPF(BPF, LinearGaussianPF):
     def __init__(self, init_particle, random_state, transition_cov, observation_cov, transition_mat, transition_offset,
@@ -734,7 +657,6 @@ class LorenzPF(ParticleFilter):
         liks = MultivariateNormal(mean_all, obs_cov).log_prob(obs_all)
 
         return liks.numpy()
-
 
     def propagate(self, resampled_particles):
         prev_centers = self.compute_prev_centers(resampled_particles)

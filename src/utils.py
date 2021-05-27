@@ -7,8 +7,8 @@ from matplotlib import rcParams
 from scipy.integrate import simps
 from scipy.special import logsumexp
 from scipy.optimize import minimize
-from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler
+# from sklearn.cluster import DBSCAN
+# from sklearn.preprocessing import StandardScaler
 import time
 import random
 from tqdm import tqdm
@@ -86,6 +86,7 @@ def scale_reduced_system(smaller_A, smaller_b):
 
 def safe_invert(matrix):
 	return np.linalg.lstsq(matrix, np.eye(matrix.shape[0]))[0]
+	# return np.linalg.inv(matrix)
 
 def reduce_system(n_particle, A, b):
 
@@ -113,23 +114,41 @@ def sanity_checks(unnormalized):
 		sys.exit()
 
 
+# def set_plotting():
+# 	# Set plotting
+# 	params = {
+# 		'axes.labelsize': 25,
+# 		'font.size': 20,
+# 		'legend.fontsize': 30,
+# 		'xtick.labelsize': 25,
+# 		'ytick.labelsize': 25,
+# 		'text.usetex': False,
+# 		'figure.figsize': [20, 12],
+# 		'axes.labelpad': 10,
+# 		'lines.linewidth': 10,
+# 		'legend.loc': 'upper right'
+# 	}
+# 	rcParams['agg.path.chunksize'] = 10000
+# 	rcParams.update(params)
+# 	plt.style.use('bmh')
 def set_plotting():
 	# Set plotting
 	params = {
-		'axes.labelsize': 25,
+		'axes.labelsize': 28,
 		'font.size': 20,
-		'legend.fontsize': 24,
-		'xtick.labelsize': 25,
-		'ytick.labelsize': 25,
+		'legend.fontsize': 28,
+		'xtick.labelsize': 28,
+		'ytick.labelsize': 28,
 		'text.usetex': False,
 		'figure.figsize': [20, 12],
 		'axes.labelpad': 10,
 		'lines.linewidth': 10,
-		'legend.loc': 'upper left'
+		'legend.loc': 'upper right'
 	}
 	rcParams['agg.path.chunksize'] = 10000
 	rcParams.update(params)
 	plt.style.use('bmh')
+
 
 
 def is_pos_def(x):
